@@ -46,8 +46,8 @@ export const FIREBASE_CONFIG = {
     measurementId: "G-JJEPLWH5L6"
 }
 
-/** Domínio permitido para login - alterado para gmail.com para testes, mas idealmente seria rethink.dev */
-export const ALLOWED_DOMAIN = 'gmail.com'
+/** Domínio permitido para login */
+export const ALLOWED_DOMAIN = 'rethink.dev'
 
 /** Caminho da coleção de impedimentos no Firestore */
 export const IMPEDIMENTS_COLLECTION = 'artifacts/demo/public/data/impediments'

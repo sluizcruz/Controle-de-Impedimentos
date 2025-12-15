@@ -1,0 +1,9 @@
+Arquivo criado para disparar deploy via GitHub Actions
+
+Para executar o deploy:
+1. Certifique-se que o segredo FIREBASE_SERVICE_ACCOUNT está configurado
+2. Faça commit deste arquivo ou qualquer alteração na branch main
+3. O workflow será executado automaticamente
+
+Alternativamente, acesse: https://github.com/[SEU-USUARIO]/[SEU-REPOSITORIO]/actions
+Clique em "Deploy Firebase Hosting & Functions" → "Run workflow"

@@ -1,0 +1,2197 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard de Impedimentos da Sprint</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <header class="px-4 sm:px-6 py-3 bg-white border-b border-gray-200">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-semibold">Dashboard de Impedimentos da Sprint</h1>
+        <div id="now" class="text-sm text-gray-500"></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="userInfo" class="text-sm text-gray-600"></div>
+        <button id="headerHistory" class="px-3 py-2 bg-gray-100 text-gray-900 rounded hover:bg-gray-200 transition">Histórico</button>
+        <button id="signIn" class="px-3 py-2 bg-blue-600 text-white rounded">Entrar</button>
+        <button id="signOut" class="px-3 py-2 bg-gray-700 text-white rounded hidden">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="p-4 sm:p-6 max-w-6xl mx-auto space-y-5" style="display:none">
+    <section class="bg-white border border-gray-200 rounded-md p-3">
+      <div class="flex flex-wrap items-end gap-4">
+        <div class="flex-1">
+          <label class="block text-xs text-gray-600">Sprint ID</label>
+          <input id="sprintIdInput" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" placeholder="ex.: Sprint-2025" />
+        </div>
+        <div class="flex-1">
+          <label class="block text-xs text-gray-600">Data de Início</label>
+          <input id="sprintStartDateInput" type="date" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <button id="startSprint" class="px-2.5 py-1.5 bg-green-600 text-white rounded-md text-sm" disabled>Iniciar Sprint</button>
+        <button id="applySprintFilter" class="px-2.5 py-1.5 bg-gray-100 text-gray-900 rounded-md text-sm">Aplicar Filtro</button>
+        <span id="sprintStatus" class="px-2.5 py-1.5 text-xs font-medium rounded-md hidden"></span>
+        <button id="exportPdf" class="px-2.5 py-1.5 bg-gray-100 text-gray-900 rounded-md text-sm">Exportar PDF</button>
+        <button id="seedDemo" class="px-2.5 py-1.5 bg-gray-100 text-gray-900 rounded-md text-sm">Popular Exemplo</button>
+        <button id="seedWeek" class="px-2.5 py-1.5 bg-gray-100 text-gray-900 rounded-md text-sm">Popular Semana</button>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div class="bg-white border border-gray-200 rounded-md p-3">
+        <div class="text-sm text-gray-500">Tempo Total Bloqueado</div>
+        <div id="totalBlocked" class="text-2xl font-semibold">0h</div>
+      </div>
+      <div id="cardBlocked" class="bg-red-50 border border-red-200 rounded-md p-3 cursor-pointer shadow-sm hover:shadow-md active:shadow transition-all duration-150 hover:-translate-y-[1px]">
+        <div class="text-sm text-gray-500">SHP Bloqueadas</div>
+        <div id="countBlocked" class="text-2xl font-semibold">0</div>
+      </div>
+      <div id="cardUnblocked" class="bg-green-50 border border-green-200 rounded-md p-3 cursor-pointer shadow-sm hover:shadow-md active:shadow transition-all duration-150 hover:-translate-y-[1px]">
+        <div class="text-sm text-gray-500">SHP Desbloqueadas</div>
+        <div id="countUnblocked" class="text-2xl font-semibold">0</div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div class="md:col-span-2 flex items-center justify-end mb-2">
+        <div class="inline-flex rounded border border-gray-200 overflow-hidden">
+          <button id="modeWorkBtn" type="button" class="px-3 py-1 bg-gray-800 text-white">Horas úteis</button>
+          <button id="modeTotalBtn" type="button" class="px-3 py-1 bg-white text-gray-800">Horas totais</button>
+        </div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-md p-3">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Distribuição por Motivo (Desbloqueadas)</h2>
+          <div class="text-sm text-gray-500">Tempo por motivo</div>
+        </div>
+        <div id="reasonChartBox" class="relative h-32 md:h-48"><canvas id="reasonChart" class="absolute inset-0 w-full h-full"></canvas></div>
+      </div>
+      <div class="bg-white border border-gray-200 rounded-md p-3">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold">Distribuição por Motivo (Bloqueadas)</h2>
+          <div class="text-sm text-gray-500">Tempo atual por motivo</div>
+        </div>
+        <div id="reasonChartBoxBlocked" class="relative h-32 md:h-48">
+          <canvas id="reasonChartBlocked" class="absolute inset-0 w-full h-full"></canvas>
+          <div id="reasonChartBlockedEmpty" class="absolute inset-0 flex items-center justify-center text-sm text-gray-500 hidden">Sem bloqueios ativos</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="activeCarouselBox" class="bg-white border border-gray-200 rounded-md p-3">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Bloqueios Ativos</h2>
+        <div class="text-sm text-gray-500">Carrossel</div>
+      </div>
+      <div id="activeCarousel" class="relative overflow-hidden">
+        <div id="activeCarouselSlides" class="flex flex-nowrap transition-transform duration-300 ease-in-out"></div>
+        <div class="flex items-center justify-between mt-2">
+          <button id="carouselPrev" class="px-2 py-1 bg-gray-100 text-gray-900 rounded">Anterior</button>
+          <button id="carouselNext" class="px-2 py-1 bg-gray-100 text-gray-900 rounded">Próximo</button>
+        </div>
+        <div id="carouselDots" class="flex items-center justify-center gap-1 mt-2"></div>
+        <div id="activeCarouselEmpty" class="text-sm text-gray-500 mt-2 hidden">Nenhum bloqueio ativo</div>
+      </div>
+    </section>
+
+
+
+
+    <section class="bg-white border border-gray-200 rounded-md p-3">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">Linha do Tempo da Sprint (15 dias)</h2>
+        <div class="text-sm text-gray-500">Horas bloqueadas por dia</div>
+      </div>
+      <div class="relative h-40 md:h-56"><canvas id="timelineChart" class="absolute inset-0 w-full h-full"></canvas></div>
+    </section>
+    <section class="bg-white border border-gray-200 rounded-md p-3">
+      <h2 class="text-lg font-semibold mb-3">Registrar Bloqueio</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium">ID da US</label>
+          <input id="usId" class="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Título da US</label>
+          <input id="usTitle" class="mt-1 w-full border rounded px-3 py-2" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Motivo do Bloqueio</label>
+          <select id="reason" class="mt-1 w-full border rounded px-3 py-2">
+            <option value="Ambiente">Ambiente</option>
+            <option value="Bug Interno">Bug Interno</option>
+            <option value="Dependência Externa">Dependência Externa</option>
+            <option value="Falta de Especificação">Falta de Especificação</option>
+            <option value="Getnet">Getnet</option>
+            <option value="OCC">OCC</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Responsável</label>
+          <input id="responsavel" class="mt-1 w-full border rounded px-3 py-2" placeholder="Nome ou e-mail" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium">Link/ID na Ferramenta</label>
+          <input id="externalLink" class="mt-1 w-full border rounded px-3 py-2" placeholder="JIRA/Trello/Azure" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-medium">Descrição do Problema (opcional)</label>
+          <textarea id="description" class="mt-1 w-full border rounded px-3 py-2" rows="3" placeholder="Descreva brevemente o problema"></textarea>
+        </div>
+        
+      </div>
+      <div class="mt-4 flex items-center gap-3">
+        <button id="startBlock" class="px-3 py-1 bg-red-600 text-white rounded text-sm">Iniciar bloqueio</button>
+        <div id="authRequired" class="text-sm text-red-600 hidden">Necessário login para registrar/editar.</div>
+      </div>
+    </section>
+
+    <section class="bg-white p-4 rounded shadow">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">SHP Bloqueadas</h2>
+        <div class="text-sm text-gray-500">Ordenadas por maior tempo bloqueado</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-3 py-2 text-left">ID</th>
+              <th class="px-3 py-2 text-left">Título</th>
+              <th class="px-3 py-2 text-left">Motivo</th>
+              <th class="px-3 py-2 text-left">Responsável</th>
+              <th class="px-3 py-2 text-left">Início</th>
+              <th class="px-3 py-2 text-left">Tempo Bloqueado</th>
+              <th class="px-3 py-2 text-left">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="blockedTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="bg-white p-4 rounded shadow">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-semibold">SHP Desbloqueadas</h2>
+        <div class="text-sm text-gray-500">Ordenadas por data de desbloqueio</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-100">
+            <tr>
+              <th class="px-3 py-2 text-left">ID</th>
+              <th class="px-3 py-2 text-left">Título</th>
+              <th class="px-3 py-2 text-left">Motivo</th>
+              <th class="px-3 py-2 text-left">Responsável</th>
+              <th class="px-3 py-2 text-left">Início</th>
+              <th class="px-3 py-2 text-left">Fim</th>
+              <th class="px-3 py-2 text-left">Tempo</th>
+              <th class="px-3 py-2 text-left">Ações</th>
+            </tr>
+          </thead>
+          <tbody id="unblockedTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+
+  </main>
+
+  <div id="modalBackdrop" class="fixed inset-0 bg-black bg-opacity-40 hidden z-30"></div>
+  <div id="usModal" class="fixed inset-0 flex items-center justify-center hidden z-50">
+    <div class="bg-white w-full max-w-2xl rounded shadow-lg mx-4">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center gap-2">
+          <div>
+            <div id="modalTitle" class="text-lg font-semibold"></div>
+            <div id="modalSubtitle" class="text-sm text-gray-500"></div>
+          </div>
+          <span id="usModalActive" class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs hidden">Ativo</span>
+        </div>
+        <button id="closeModal" class="px-3 py-1 bg-gray-800 text-white rounded">Fechar</button>
+      </div>
+      <div class="p-4 overflow-y-auto max-h-[65vh]">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-3 py-2 text-left">Motivo</th>
+                <th class="px-3 py-2 text-left">Início</th>
+                <th class="px-3 py-2 text-left">Fim</th>
+                <th class="px-3 py-2 text-left">Tempo</th>
+                <th class="px-3 py-2 text-left">Responsável</th>
+                <th class="px-3 py-2 text-left">Descrição</th>
+                <th class="px-3 py-2 text-left" title="Registro anterior que originou a reabertura; clique em 'Ver origem' para destacar">Origem da Reabertura</th>
+              </tr>
+            </thead>
+            <tbody id="modalBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="unblockedModal" class="fixed inset-0 flex items-center justify-center hidden z-40">
+    <div class="bg-white w-full max-w-3xl rounded shadow-lg mx-4">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center gap-2">
+          <div>
+            <div class="text-lg font-semibold">SHP Desbloqueadas</div>
+            <div id="unblockedSubtitle" class="text-sm text-gray-500"></div>
+          </div>
+          <span id="unblockedModalActive" class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs hidden">Ativo</span>
+        </div>
+        <button id="closeUnblockedModal" class="px-3 py-1 bg-gray-800 text-white rounded">Fechar</button>
+      </div>
+      <div class="p-4 overflow-y-auto max-h-[65vh]">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-3 py-2 text-left">SHP</th>
+                <th class="px-3 py-2 text-left">Título</th>
+                <th class="px-3 py-2 text-left">Motivo</th>
+                <th class="px-3 py-2 text-left">Responsável</th>
+                <th class="px-3 py-2 text-left">Início</th>
+                <th class="px-3 py-2 text-left">Fim</th>
+                <th class="px-3 py-2 text-left">Tempo</th>
+                <th class="px-3 py-2 text-left">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="unblockedModalBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="blockedModal" class="fixed inset-0 flex items-center justify-center hidden z-40">
+    <div class="bg-white w-full max-w-3xl rounded shadow-lg mx-4">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center gap-2">
+          <div>
+            <div class="text-lg font-semibold">SHP Bloqueadas</div>
+            <div id="blockedSubtitle" class="text-sm text-gray-500"></div>
+          </div>
+          <span id="blockedModalActive" class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs hidden">Ativo</span>
+        </div>
+        <button id="closeBlockedModal" class="px-3 py-1 bg-gray-800 text-white rounded">Fechar</button>
+      </div>
+      <div class="p-4 overflow-y-auto max-h-[65vh]">
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="px-3 py-2 text-left">SHP</th>
+                <th class="px-3 py-2 text-left">Título</th>
+                <th class="px-3 py-2 text-left">Motivo</th>
+                <th class="px-3 py-2 text-left">Responsável</th>
+                <th class="px-3 py-2 text-left">Início</th>
+                <th class="px-3 py-2 text-left">Tempo</th>
+                <th class="px-3 py-2 text-left">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="blockedModalBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="editModal" class="fixed inset-0 flex items-center justify-center hidden z-40">
+    <div class="bg-white w-full max-w-lg rounded shadow-lg">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center gap-2">
+          <div class="text-lg font-semibold">Editar Bloqueio</div>
+          <span id="editModalActive" class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs hidden">Ativo</span>
+        </div>
+        <button id="closeEditModal" class="px-3 py-1 bg-gray-800 text-white rounded">Fechar</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <label class="block text-sm">Título</label>
+          <input id="editTitle" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm">Motivo</label>
+          <select id="editReason" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm">
+            <option value="Ambiente">Ambiente</option>
+            <option value="Dependência Externa">Dependência Externa</option>
+            <option value="Bug Interno">Bug Interno</option>
+            <option value="Getnet">Getnet</option>
+            <option value="OCC">OCC</option>
+            <option value="Falta de Especificação">Falta de Especificação</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm">Link/ID</label>
+          <input id="editExternalLink" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm">Descrição Atual</label>
+          <textarea id="editDescription" rows="3" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm bg-gray-50" readonly></textarea>
+        </div>
+        <div>
+          <label class="block text-sm">Nova Descrição (adicione informações sobre o problema que voltou a ocorrer)</label>
+          <textarea id="editNewDescription" rows="3" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" placeholder="Descreva o novo problema ou a recorrência do impedimento..."></textarea>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button id="saveEditBtn" class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm">Reabrir Impedimento</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="reopenModal" class="fixed inset-0 flex items-center justify-center hidden z-40">
+    <div class="bg-white w-full max-w-lg rounded shadow-lg">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="flex items-center gap-2">
+          <div class="text-lg font-semibold">Reabrir SHP</div>
+          <span id="reopenModalActive" class="ml-2 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded text-xs hidden">Ativo</span>
+        </div>
+        <button id="closeReopenModal" class="px-3 py-1 bg-gray-800 text-white rounded">Fechar</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <label class="block text-sm">Título</label>
+          <input id="reopenTitle" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm">Motivo</label>
+          <select id="reopenReason" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm">
+            <option value="Ambiente">Ambiente</option>
+            <option value="Dependência Externa">Dependência Externa</option>
+            <option value="Bug Interno">Bug Interno</option>
+            <option value="Getnet">Getnet</option>
+            <option value="OCC">OCC</option>
+            <option value="Falta de Especificação">Falta de Especificação</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm">Link/ID</label>
+          <input id="reopenExternalLink" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-sm">Descrição</label>
+          <textarea id="reopenDescription" rows="3" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm"></textarea>
+        </div>
+        <div class="flex justify-end gap-2">
+          <button id="saveReopenBtn" class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm">Reabrir</button>
+        </div>
+      </div>
+  </div>
+
+  <div id="filterModal" class="fixed inset-0 flex items-center justify-center hidden z-40">
+    <div class="bg-white w-full max-w-lg rounded shadow-lg mx-4">
+      <div class="flex items-center justify-between p-4 border-b">
+        <div class="text-lg font-semibold">Filtrar Sprint</div>
+        <button id="closeFilterModal" class="px-3 py-1 bg-gray-800 text-white rounded">Fechar</button>
+      </div>
+      <div class="p-4 space-y-3">
+        <div>
+          <label class="block text-sm">Sprint ID</label>
+          <input id="filterSprintId" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" placeholder="ex.: Sprint-2025-45" />
+        </div>
+        <div>
+          <label class="block text-sm">Data de Início</label>
+          <input id="filterStartDate" type="date" class="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div class="flex justify-end gap-2">
+          <button id="confirmFilterBtn" class="px-3 py-2 bg-indigo-600 text-white rounded-md text-sm">Aplicar e Abrir Board</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  </div>
+
+  <div id="loginOverlay" class="fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-gradient-to-br from-purple-600 to-purple-800"></div>
+    <div class="absolute -left-6 bottom-10 w-64 h-64 bg-yellow-400 opacity-20 rounded-full"></div>
+    <div class="absolute right-10 top-24 w-24 h-24 bg-pink-400 opacity-30 rounded-full"></div>
+    <div class="absolute left-1/3 bottom-1/3 w-16 h-16 bg-green-400 opacity-25 rounded-full"></div>
+    <div class="absolute right-1/4 bottom-20 w-40 h-40 bg-blue-400 opacity-20 rounded-full"></div>
+    <div class="relative z-10 flex flex-col items-center justify-center min-h-screen p-4">
+      <div class="text-5xl font-bold tracking-wide text-white mb-2">Controle de Impedimentos</div>
+      <div class="text-xl text-purple-100 mb-8">da Sprint</div>
+      <div class="bg-white border border-purple-200 rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        <div class="bg-purple-700 text-white text-sm font-semibold px-4 py-3">Boas-vindas!</div>
+        <div class="p-6 space-y-4">
+          <button id="overlaySignIn" class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+            <span class="inline-block w-5 h-5">
+              <svg viewBox="0 0 24 24" class="w-full h-full">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+            </span>
+            <span class="text-gray-800 font-medium">Login com Google</span>
+          </button>
+          <div id="loginMsg" class="text-xs text-gray-500 text-center">Faça login utilizando sua conta do domínio permitido</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const firebaseConfig = {
+      apiKey: "AIzaSyBSKcceleQlEj5fsBnOD6wFGridCFkMUd0",
+      authDomain: "controle-de-impedimentos.firebaseapp.com",
+      projectId: "controle-de-impedimentos",
+      storageBucket: "controle-de-impedimentos.firebasestorage.app",
+      messagingSenderId: "327948512776",
+      appId: "1:327948512776:web:b0d31b5f5bc069636a6bbd",
+      measurementId: "G-JJEPLWH5L6"
+    };
+
+    const DEMO_MODE = !firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY";
+    const MOCK_LOGIN = new URLSearchParams(location.search).get("mockLogin") === "1";
+    const __qs = new URLSearchParams(location.search);
+    const MOCK_SPRINT_DATE = __qs.get("mockSprintDate") || (__qs.get("mockSprint") === "1" ? "2025-11-03" : "");
+
+    let app = null, auth = null, db = null;
+    if (!DEMO_MODE) {
+      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js");
+      const { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js");
+      const { getFirestore, collection, addDoc, doc, updateDoc, query, where, onSnapshot, Timestamp, orderBy } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
+      app = initializeApp(firebaseConfig);
+      auth = getAuth(app);
+      db = getFirestore(app);
+      window.__firebase = { GoogleAuthProvider, signInWithPopup, signInWithRedirect, onAuthStateChanged, signOut, collection, addDoc, doc, updateDoc, query, where, onSnapshot, Timestamp, orderBy };
+      try { await signOut(auth); } catch(e) {}
+      if (!window.__fetchAuthWrapped) {
+        const __origFetch = window.fetch;
+        window.fetch = function(u, o = {}) {
+          if (String(u).includes('/api/') && window.__authToken) {
+            o.headers = o.headers || {};
+            o.headers['Authorization'] = `Bearer ${window.__authToken}`;
+          }
+          return __origFetch.call(this, u, o);
+        };
+        window.__fetchAuthWrapped = true;
+      }
+    }
+
+    const nowEl = document.getElementById("now");
+    const signInBtn = document.getElementById("signIn");
+    const signOutBtn = document.getElementById("signOut");
+    const userInfoEl = document.getElementById("userInfo");
+    const authRequiredEl = document.getElementById("authRequired");
+
+    const sprintIdInput = document.getElementById("sprintIdInput");
+    const sprintStartDateInput = document.getElementById("sprintStartDateInput");
+    const startSprintBtn = document.getElementById("startSprint");
+    const applySprintFilterBtn = document.getElementById("applySprintFilter");
+    const sprintStatusEl = document.getElementById("sprintStatus");
+    
+    const seedDemoBtn = document.getElementById("seedDemo");
+    const seedWeekBtn = document.getElementById("seedWeek");
+    const exportPdfBtn = document.getElementById("exportPdf");
+    const headerHistoryBtn = document.getElementById("headerHistory");
+    const reasonChartBox = document.getElementById("reasonChartBox");
+    const reasonChartBoxBlocked = document.getElementById("reasonChartBoxBlocked");
+    const reasonChartBlockedEmpty = document.getElementById("reasonChartBlockedEmpty");
+    const activeCarouselBox = document.getElementById("activeCarouselBox");
+    const activeCarouselEl = document.getElementById("activeCarousel");
+    const activeCarouselSlides = document.getElementById("activeCarouselSlides");
+    const activeCarouselEmpty = document.getElementById("activeCarouselEmpty");
+    const carouselPrevBtn = document.getElementById("carouselPrev");
+    const carouselNextBtn = document.getElementById("carouselNext");
+    const carouselDotsEl = document.getElementById("carouselDots");
+
+    const totalBlockedEl = document.getElementById("totalBlocked");
+    const countBlockedEl = document.getElementById("countBlocked");
+    const countUnblockedEl = document.getElementById("countUnblocked");
+
+    const usIdEl = document.getElementById("usId");
+    const usTitleEl = document.getElementById("usTitle");
+    const reasonEl = document.getElementById("reason");
+    const responsavelEl = document.getElementById("responsavel");
+    const externalLinkEl = document.getElementById("externalLink");
+    const startBlockBtn = document.getElementById("startBlock");
+    const descriptionEl = document.getElementById("description");
+    const modeWorkBtn = document.getElementById("modeWorkBtn");
+    const modeTotalBtn = document.getElementById("modeTotalBtn");
+
+    const blockedTableBody = document.getElementById("blockedTable");
+    const unblockedTableBody = document.getElementById("unblockedTable");
+    const modalBackdrop = document.getElementById("modalBackdrop");
+    const editTitleEl = document.getElementById("editTitle");
+    const editReasonEl = document.getElementById("editReason");
+    const editExternalLinkEl = document.getElementById("editExternalLink");
+    const editDescriptionEl = document.getElementById("editDescription");
+    const editNewDescriptionEl = document.getElementById("editNewDescription");
+    const editSaveBtn = document.getElementById("saveEditBtn");
+    const reopenReasonEl = document.getElementById("reopenReason");
+    const reopenTitleEl = document.getElementById("reopenTitle");
+    const reopenExternalLinkEl = document.getElementById("reopenExternalLink");
+    const reopenDescriptionEl = document.getElementById("reopenDescription");
+    const saveReopenBtn = document.getElementById("saveReopenBtn");
+    const usModal = document.getElementById("usModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const modalSubtitle = document.getElementById("modalSubtitle");
+    const modalBody = document.getElementById("modalBody");
+    const closeModalBtn = document.getElementById("closeModal");
+    const cardUnblocked = document.getElementById("cardUnblocked");
+    const cardBlocked = document.getElementById("cardBlocked");
+    const unblockedModal = document.getElementById("unblockedModal");
+    const unblockedSubtitle = document.getElementById("unblockedSubtitle");
+    const unblockedModalBody = document.getElementById("unblockedModalBody");
+    const closeUnblockedModalBtn = document.getElementById("closeUnblockedModal");
+    const blockedModal = document.getElementById("blockedModal");
+    const blockedSubtitle = document.getElementById("blockedSubtitle");
+    const blockedModalBody = document.getElementById("blockedModalBody");
+    const closeBlockedModalBtn = document.getElementById("closeBlockedModal");
+    const closeEditModalBtn = document.getElementById("closeEditModal");
+    const closeReopenModalBtn = document.getElementById("closeReopenModal");
+    const editModal = document.getElementById("editModal");
+    const reopenModal = document.getElementById("reopenModal");
+    const usModalActive = document.getElementById("usModalActive");
+    const blockedModalActive = document.getElementById("blockedModalActive");
+    const unblockedModalActive = document.getElementById("unblockedModalActive");
+    const editModalActive = document.getElementById("editModalActive");
+    const reopenModalActive = document.getElementById("reopenModalActive");
+    const loginOverlay = document.getElementById("loginOverlay");
+    const overlaySignInBtn = document.getElementById("overlaySignIn");
+    const loginMsgEl = document.getElementById("loginMsg");
+    const filterModal = document.getElementById("filterModal");
+    const closeFilterModalBtn = document.getElementById("closeFilterModal");
+    const confirmFilterBtn = document.getElementById("confirmFilterBtn");
+    const filterSprintIdEl = document.getElementById("filterSprintId");
+    const filterStartDateEl = document.getElementById("filterStartDate");
+
+    let currentUser = null;
+    let sprintStartDate = null;
+    let sprintEndDate = null;
+    let sprintIniciada = false;
+    let currentSprintId = "";
+    let unsubscribe = null;
+    let unsubscribeAll = null;
+    let lastSnapshotDocs = [];
+    let allImpediments = [];
+    let demoDocs = [];
+    let reasonChart = null;
+    let reasonChartBlocked = null;
+    let timelineChart = null;
+    let carouselIndex = 0;
+    let carouselTimer = null;
+    let carouselDragBound = false;
+    let previousModal = null;
+    let previousBadge = null;
+
+    function setActiveModal(modalEl, badgeEl) {
+      [usModal, unblockedModal, blockedModal, editModal, reopenModal, filterModal].forEach(m=>{ if (m?.firstElementChild) { m.firstElementChild.classList.remove('ring-2','ring-indigo-500','ring-black'); } });
+      [usModalActive, unblockedModalActive, blockedModalActive, editModalActive, reopenModalActive].forEach(b=>{ if (b) b.classList.add('hidden'); });
+      if (modalEl?.firstElementChild) { modalEl.firstElementChild.classList.add('ring-2','ring-black','transition','duration-200'); }
+      if (badgeEl) { badgeEl.classList.remove('hidden'); }
+    }
+    function animateOpen(modalEl) {
+      const box = modalEl?.firstElementChild; if (!box) { modalEl.classList.remove('hidden'); syncBackdrop(); return; }
+      box.classList.add('transform','transition','duration-200','ease-out');
+      box.classList.add('opacity-0','scale-95');
+      modalEl.classList.remove('hidden');
+      syncBackdrop();
+      requestAnimationFrame(()=>{ box.classList.remove('opacity-0','scale-95'); });
+    }
+    function animateClose(modalEl) {
+      const box = modalEl?.firstElementChild; if (!box) { modalEl.classList.add('hidden'); syncBackdrop(); return; }
+      box.classList.add('opacity-0','scale-95');
+      setTimeout(()=>{ modalEl.classList.add('hidden'); box.classList.remove('opacity-0','scale-95'); syncBackdrop(); }, 180);
+    }
+    function updateCarouselTransform(){
+      if (!activeCarouselSlides || !activeCarouselEl) return;
+      const rect = activeCarouselEl.getBoundingClientRect();
+      const w = Math.max(1, Math.floor(rect.width));
+      activeCarouselSlides.style.transform = `translateX(-${carouselIndex * w}px)`;
+    }
+    function updateCarouselDots(count){
+      if (!carouselDotsEl) return;
+      const dots = carouselDotsEl.querySelectorAll('button[data-idx]');
+      if (dots.length !== count) return;
+      dots.forEach((b,i)=>{ b.className = i===carouselIndex ? 'w-2 h-2 rounded-full bg-gray-800' : 'w-2 h-2 rounded-full bg-gray-300'; });
+    }
+    function bindCarouselDrag(){
+      if (carouselDragBound || !activeCarouselEl) return;
+      let startX = 0; let delta = 0; let dragging = false;
+      const onStart = (e)=>{
+        const x = e.touches ? e.touches[0].clientX : e.clientX;
+        startX = x; delta = 0; dragging = true;
+        if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        window.addEventListener('touchmove', onMove, { passive: true });
+        window.addEventListener('touchend', onEnd);
+      };
+      const onMove = (e)=>{
+        if (!dragging) return;
+        const x = e.touches ? e.touches[0].clientX : e.clientX;
+        delta = x - startX;
+        const rect = activeCarouselEl.getBoundingClientRect();
+        const w = Math.max(1, Math.floor(rect.width));
+        activeCarouselSlides.style.transform = `translateX(${-(carouselIndex*w - delta)}px)`;
+      };
+      const onEnd = ()=>{
+        if (!dragging) return;
+        dragging = false;
+        const rect = activeCarouselEl.getBoundingClientRect();
+        const w = Math.max(1, Math.floor(rect.width));
+        if (Math.abs(delta) > w*0.25) {
+          carouselIndex = (carouselIndex + (delta<0?1:-1) + (carouselDotsEl?.childElementCount||0)) % (carouselDotsEl?.childElementCount||1);
+        }
+        updateCarouselTransform();
+        updateCarouselDots(carouselDotsEl?.childElementCount||0);
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onEnd);
+        window.removeEventListener('touchmove', onMove);
+        window.removeEventListener('touchend', onEnd);
+      };
+      activeCarouselEl.addEventListener('mousedown', onStart);
+      activeCarouselEl.addEventListener('touchstart', onStart, { passive: true });
+      carouselDragBound = true;
+    }
+    
+    let compactCharts = true;
+    let chartsWorkHours = true;
+    let editingDocId = null;
+    let reopeningUsId = null;
+
+    function formatDuration(ms) {
+      const s = Math.floor(ms / 1000);
+      const d = Math.floor(s / 86400);
+      const h = Math.floor((s % 86400) / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      if (s < 60) return `${s}s`;
+      if (d > 0) return `${d} dia${d>1?"s":""} e ${h} hora${h>1?"s":""}`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    function nowInWorkHours() {
+      const h = new Date().getHours();
+      return h >= 9 && h < 18;
+    }
+
+    function clampToWorkDayRange(d) {
+      const workStart = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9, 0, 0, 0);
+      const workEnd = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 18, 0, 0, 0);
+      return { workStart, workEnd };
+    }
+
+    function workingMsBetween(start, end) {
+      if (!start) return 0;
+      const s = new Date(start);
+      const e = new Date(end || Date.now());
+      if (e <= s) return 0;
+      let total = 0;
+      let cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+      const last = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+      while (cur <= last) {
+        const { workStart, workEnd } = clampToWorkDayRange(cur);
+        const segStart = new Date(Math.max(workStart.getTime(), s.getTime()));
+        const segEnd = new Date(Math.min(workEnd.getTime(), e.getTime()));
+        if (segEnd > segStart) total += segEnd.getTime() - segStart.getTime();
+        cur = new Date(cur.getTime() + 86400000);
+      }
+      return total;
+    }
+
+    function nowTick() {
+      const f = new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeStyle: "short" }).format(new Date());
+      nowEl.textContent = f;
+    }
+
+    function deriveCurrentSprintId() {
+      const d = new Date();
+      const year = d.getFullYear();
+      const oneJan = new Date(d.getFullYear(),0,1);
+      const week = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay()+1)/7);
+      return `Sprint-${year}-${String(week).padStart(2,"0")}`;
+    }
+
+    function iniciarSprint() {
+      if (!currentSprintId) {
+        alert("Por favor, defina um ID de sprint primeiro");
+        return;
+      }
+      
+      const selectedDate = sprintStartDateInput.value;
+      if (!selectedDate) {
+        alert("Por favor, selecione uma data de início");
+        return;
+      }
+      
+      const parsed = parseDateInput(selectedDate);
+      sprintStartDate = parsed || new Date();
+      sprintEndDate = new Date(sprintStartDate.getTime() + 15 * 24 * 60 * 60 * 1000);
+      sprintIniciada = true;
+      
+      // Formatar datas no padrão brasileiro
+      const dataInicioBr = formatarDataBrasileira(sprintStartDate);
+      const dataFimBr = formatarDataBrasileira(sprintEndDate);
+      
+      // Atualizar status visual
+      sprintStatusEl.textContent = `Sprint iniciada: ${dataInicioBr} até ${dataFimBr}`;
+      sprintStatusEl.classList.remove('hidden');
+      sprintStatusEl.classList.add('bg-green-100', 'text-green-800');
+      
+      // Salvar estado da sprint no localStorage em formato YYYY-MM-DD
+      const startStr = sprintStartDate.toISOString().split('T')[0];
+      const endStr = sprintEndDate.toISOString().split('T')[0];
+      localStorage.setItem('sprintState', JSON.stringify({
+        sprintId: currentSprintId,
+        startDate: startStr,
+        endDate: endStr,
+        iniciada: sprintIniciada
+      }));
+      
+      alert(`Sprint "${currentSprintId}" iniciada!\nInício: ${dataInicioBr}\nFim: ${dataFimBr}`);
+      
+      // Atualizar interface para mostrar status da sprint
+      renderAll();
+    }
+
+    function setSprintWindowFromDocs() {
+      try {
+        if (!Array.isArray(lastSnapshotDocs) || lastSnapshotDocs.length === 0) return;
+        const starts = lastSnapshotDocs.map(r => r.startTime instanceof Date ? r.startTime : new Date(r.startTime)).filter(Boolean);
+        const ends = lastSnapshotDocs.map(r => r.endTime ? (r.endTime instanceof Date ? r.endTime : new Date(r.endTime)) : (r.startTime instanceof Date ? r.startTime : new Date(r.startTime))).filter(Boolean);
+        if (starts.length === 0 || ends.length === 0) return;
+        const minStart = new Date(Math.min(...starts.map(d => d.getTime())));
+        const maxEnd = new Date(Math.max(...ends.map(d => d.getTime())));
+        sprintStartDate = new Date(minStart.getFullYear(), minStart.getMonth(), minStart.getDate(), 0, 0, 0, 0);
+        sprintEndDate = new Date(maxEnd.getFullYear(), maxEnd.getMonth(), maxEnd.getDate(), 23, 59, 59, 999);
+        sprintIniciada = true;
+        renderSprintStatus();
+      } catch (e) {}
+    }
+
+    function validarDataSprint() {
+      const dataSelecionada = sprintStartDateInput.value;
+      const hoje = new Date().toISOString().split('T')[0];
+      
+      // Validar se a data foi selecionada
+      if (!dataSelecionada) {
+        startSprintBtn.disabled = true;
+        return;
+      }
+      
+      // Validar se a data não é futura
+      if (dataSelecionada > hoje) {
+        alert("A data de início não pode ser futura!");
+        sprintStartDateInput.value = '';
+        startSprintBtn.disabled = true;
+        return;
+      }
+      
+      // Habilitar botão se tudo estiver OK
+      startSprintBtn.disabled = false;
+      
+      // Se tiver Sprint ID e data selecionada, aplicar automaticamente
+      if (currentSprintId && dataSelecionada) {
+        attachListener();
+        renderAll();
+      }
+    }
+
+    if (applySprintFilterBtn) applySprintFilterBtn.addEventListener('click', ()=>{
+      if (!filterModal || !modalBackdrop) return;
+      filterSprintIdEl.value = sprintIdInput.value || '';
+      filterStartDateEl.value = sprintStartDateInput.value || '';
+      setActiveModal(filterModal, null);
+      animateOpen(filterModal);
+    });
+    const closeFilterModal = ()=> { if (!filterModal || !modalBackdrop) return; animateClose(filterModal); };
+    if (closeFilterModalBtn) closeFilterModalBtn.addEventListener('click', closeFilterModal);
+    if (confirmFilterBtn) confirmFilterBtn.addEventListener('click', ()=>{
+      const masked = aplicarMascaraSprintID(String(filterSprintIdEl.value || ''));
+      const dateStr = String(filterStartDateEl.value || '').trim();
+      const params = new URLSearchParams();
+      if (masked) params.set('sprintId', masked);
+      if (dateStr) params.set('startDate', dateStr);
+      const url = `${location.pathname}?${params.toString()}`;
+      location.assign(url);
+    });
+    
+
+    function aplicarMascaraSprintID(valor) {
+      // Remove tudo que não é letra ou número
+      let limpo = valor.replace(/[^a-zA-Z0-9]/g, '');
+      
+      // Converte para uppercase
+      limpo = limpo.toUpperCase();
+      
+      // Aplica o formato Sprint-XXX
+      if (limpo.length > 0) {
+        // Remove "SPRINT" se já existir no início
+        if (limpo.startsWith('SPRINT')) {
+          limpo = limpo.substring(6);
+        }
+        // Adiciona o prefixo Sprint-
+        return 'Sprint-' + limpo;
+      }
+      
+      return 'Sprint-';
+    }
+
+    function formatarSprintIDInput() {
+      const valorAtual = sprintIdInput.value;
+      const valorFormatado = aplicarMascaraSprintID(valorAtual);
+      
+      // Só atualiza se o valor mudou
+      if (valorAtual !== valorFormatado) {
+        sprintIdInput.value = valorFormatado;
+      }
+      
+      // Atualizar currentSprintId
+      currentSprintId = valorFormatado;
+      
+      // Se tiver Sprint ID e data selecionada, aplicar automaticamente
+      if (currentSprintId && sprintStartDateInput.value) {
+        attachListener();
+        renderAll();
+      }
+    }
+
+    function formatarDataBrasileira(data) {
+      // Se for uma string de data (YYYY-MM-DD), converter para Date
+      if (typeof data === 'string' && data.includes('-')) {
+        data = new Date(data);
+      }
+      
+      // Se for um objeto Date
+      if (data instanceof Date) {
+        const dia = String(data.getDate()).padStart(2, '0');
+        const mes = String(data.getMonth() + 1).padStart(2, '0');
+        const ano = data.getFullYear();
+        return `${dia}/${mes}/${ano}`;
+      }
+      
+      return data;
+    }
+    
+    function parseDateInput(value) {
+      if (!value || typeof value !== 'string') return null;
+      const parts = value.split('-');
+      if (parts.length !== 3) return null;
+      const y = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const d = parseInt(parts[2], 10);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d, 0, 0, 0, 0);
+    }
+
+
+    function daysInMonth(y,m){ return new Date(y, m+1, 0).getDate(); }
+    
+
+    function makeDemoData() {
+      const curr = sprintIdInput?.value?.trim() || deriveCurrentSprintId();
+      const now = new Date();
+      return [
+        { id: "d1", usId: "US-123", usTitle: "Checkout não calcula frete", sprintId: curr, startTime: new Date(now.getTime()-10*3600000), endTime: null, reason: "Dependência Externa", userId: "demo", externalLink: "" },
+        { id: "d2", usId: "US-245", usTitle: "Tela de Login", sprintId: curr, startTime: new Date(now.getTime()-8*3600000), endTime: new Date(now.getTime()-3*3600000), reason: "Bug Interno", userId: "demo", externalLink: "" },
+        { id: "d3", usId: "US-310", usTitle: "Dashboard Vendas", sprintId: curr, startTime: new Date(now.getTime()-3*3600000), endTime: null, reason: "Ambiente", userId: "demo", externalLink: "" }
+      ];
+    }
+
+    function seedDemoData(){
+      const k = currentSprintId || deriveCurrentSprintId();
+      // Remove mocks anteriores da mesma sprint
+      demoDocs = demoDocs.filter(d => d.sprintId !== k);
+      // Criar um bloqueio aberto para cada motivo, com inicio no horário útil
+      const now = new Date();
+      const mid = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0);
+      const samples = [
+        { usId: "SHP-A1", title: "Ambiente QA", reason: "Ambiente", hoursAgo: 7, dur: 1,   desc: "Instância fora do ar" },
+        { usId: "SHP-D1", title: "API Externa", reason: "Dependência Externa", hoursAgo: 6, dur: 5,   desc: "Fornecedor indisponível" },
+        { usId: "SHP-B1", title: "Erro de Cálculo", reason: "Bug Interno", hoursAgo: 5, dur: 2.5, desc: "Null pointer" },
+        { usId: "SHP-G1", title: "Integração Getnet", reason: "Getnet", hoursAgo: 4, dur: 7.5, desc: "Timeout na adquirente" },
+        { usId: "SHP-O1", title: "Fluxo OCC", reason: "OCC", hoursAgo: 3, dur: 4,   desc: "Regra de negócio pendente" },
+        { usId: "SHP-F1", title: "Especificação", reason: "Falta de Especificação", hoursAgo: 2, dur: 8,   desc: "Critérios incompletos" }
+      ].map((s, i) => {
+        const startTime = new Date(mid.getTime() - s.hoursAgo*3600000);
+        const endCandidate = new Date(startTime.getTime() + s.dur*3600000);
+        const { workEnd } = clampToWorkDayRange(startTime);
+        const endTime = new Date(Math.min(endCandidate.getTime(), workEnd.getTime()));
+        return {
+          id: String(mid.getTime()+i),
+          usId: s.usId,
+          usTitle: s.title,
+          sprintId: k,
+          startTime,
+          endTime,
+          reason: s.reason,
+          userId: "demo",
+          externalLink: "",
+          description: s.desc
+        };
+      });
+      demoDocs.push(...samples);
+      if (!currentSprintId) currentSprintId = k;
+      attachListener();
+    }
+
+    function seedWeekDemoData(){
+      const k = currentSprintId || deriveCurrentSprintId();
+      demoDocs = demoDocs.filter(d => d.sprintId !== k);
+      const motives = ['Ambiente','Dependência Externa','Bug Interno','Getnet','OCC','Falta de Especificação'];
+      const base = (sprintIniciada && sprintStartDate) ? new Date(sprintStartDate.getFullYear(), sprintStartDate.getMonth(), sprintStartDate.getDate(), 9, 0, 0, 0) : new Date();
+      const day = base.getDay();
+      const monday = new Date(base.getFullYear(), base.getMonth(), base.getDate() - ((day+6)%7), 9, 0, 0, 0);
+      const endLimit = (sprintIniciada && sprintEndDate) ? new Date(sprintEndDate.getFullYear(), sprintEndDate.getMonth(), sprintEndDate.getDate(), 23, 59, 59, 999) : null;
+      let daysCount = 7;
+      if (endLimit) {
+        const diff = Math.floor((endLimit.getTime() - monday.getTime())/86400000) + 1;
+        daysCount = Math.max(1, Math.min(7, diff));
+      }
+      const items = [];
+      for (let i = 0; i < daysCount; i++) {
+        const baseDay = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate()+i, 9, 0, 0, 0);
+        for (let j = 0; j < 2; j++) {
+          const startHour = 9 + (j*3);
+          const start = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour, 0, 0, 0);
+          if (endLimit && start > endLimit) break;
+          const durH = 2 + ((i+j)%3);
+          const endCandidate = new Date(start.getTime() + durH*3600000);
+          const { workEnd } = clampToWorkDayRange(start);
+          let end = new Date(Math.min(endCandidate.getTime(), workEnd.getTime()));
+          if (i === (daysCount-1) && j === 1) end = null;
+          if (endLimit && end && end > endLimit) end = new Date(endLimit);
+          const reason = motives[(i+j)%motives.length];
+          items.push({
+            id: String(start.getTime()+j),
+            usId: `SHP-${String(i+1).padStart(2,'0')}${j}`,
+            usTitle: `Tarefa ${i+1}-${j+1}`,
+            sprintId: k,
+            startTime: start,
+            endTime: end,
+            reason,
+            userId: 'demo',
+            externalLink: '',
+            description: ''
+          });
+        }
+      }
+      demoDocs.push(...items);
+      if (!currentSprintId) currentSprintId = k;
+      attachListener();
+    }
+
+    function sprintWeeklyIdFor(d) {
+      const year = d.getFullYear();
+      const oneJan = new Date(d.getFullYear(),0,1);
+      const week = Math.ceil((((d - oneJan) / 86400000) + oneJan.getDay()+1)/7);
+      return `Sprint-${year}-${String(week).padStart(2,"0")}`;
+    }
+
+    function seedSprintForDate(dateStr){
+      try {
+        const parts = String(dateStr||'').split('-');
+        const y = parseInt(parts[0],10); const m = parseInt(parts[1],10); const d = parseInt(parts[2],10);
+        if (!y || !m || !d) return;
+        const startDay = new Date(y, m-1, d, 9, 0, 0, 0);
+        const k = sprintWeeklyIdFor(startDay);
+        demoDocs = demoDocs.filter(r => r.sprintId !== k);
+        const motives = ['Ambiente','Dependência Externa','Bug Interno','Getnet','OCC','Falta de Especificação'];
+        const items = [];
+        for (let i = 0; i < 14; i++) {
+          const baseDay = new Date(startDay.getFullYear(), startDay.getMonth(), startDay.getDate()+i, 9, 0, 0, 0);
+          for (let j = 0; j < 2; j++) {
+            const startHour = 9 + (j*3);
+            const start = new Date(baseDay.getFullYear(), baseDay.getMonth(), baseDay.getDate(), startHour, 0, 0, 0);
+            const durH = 2 + ((i+j)%3);
+            const endCandidate = new Date(start.getTime() + durH*3600000);
+            const { workEnd } = clampToWorkDayRange(start);
+            const end = new Date(Math.min(endCandidate.getTime(), workEnd.getTime()));
+            const reason = motives[(i+j)%motives.length];
+            items.push({
+              id: String(start.getTime()+j),
+              usId: `SHP-${String(i+1).padStart(2,'0')}${j}`,
+              usTitle: `Tarefa ${i+1}-${j+1}`,
+              sprintId: k,
+              startTime: start,
+              endTime: end,
+              reason,
+              userId: 'demo',
+              externalLink: '',
+              description: ''
+            });
+          }
+        }
+        demoDocs.push(...items);
+        currentSprintId = k;
+        sprintStartDate = new Date(y, m-1, d, 0, 0, 0, 0);
+        sprintEndDate = new Date(y, m-1, d+13, 23, 59, 59, 999);
+        sprintIniciada = true;
+        if (sprintIdInput) sprintIdInput.value = k;
+        if (sprintStartDateInput) sprintStartDateInput.value = `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        localStorage.setItem('sprintState', JSON.stringify({ sprintId: currentSprintId, startDate: sprintStartDateInput.value, endDate: sprintEndDate.toISOString().split('T')[0], iniciada: true }));
+        renderSprintStatus();
+        attachListener();
+        renderAll();
+      } catch(e) {}
+    }
+
+
+    function attachListener() {
+      if (unsubscribe) unsubscribe();
+      if (!currentSprintId) return;
+      if (!DEMO_MODE) {
+        const { collection, query, where, onSnapshot, orderBy } = window.__firebase;
+        const col = collection(db, `artifacts/demo/public/data/impediments`);
+        const q = query(col, where("sprintId","==", currentSprintId), orderBy("startTime","desc"));
+        unsubscribe = onSnapshot(q, (snap) => {
+          lastSnapshotDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+          setSprintWindowFromDocs();
+          renderAll();
+        });
+      } else {
+        if (demoDocs.length === 0) { seedDemoData(); }
+        lastSnapshotDocs = demoDocs.filter(d => d.sprintId === currentSprintId);
+        setSprintWindowFromDocs();
+        renderAll();
+      }
+    }
+
+    
+
+    function computeMetrics(docs) {
+      const byUs = new Map();
+      const dayTotals = new Map();
+      for (const d of docs) {
+        const key = d.usId;
+        if (!byUs.has(key)) byUs.set(key, []);
+        byUs.get(key).push(d);
+        // accumulate per-day totals for global cap
+        const start = d.startTime instanceof Date ? d.startTime : new Date(d.startTime);
+        const end = d.endTime ? (d.endTime instanceof Date ? d.endTime : new Date(d.endTime)) : null;
+        // walk days and add only working hours
+        const s = new Date(start);
+        const e = new Date(end || Date.now());
+        let cur = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+        const last = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+        while (cur <= last) {
+          const k = `${cur.getFullYear()}-${cur.getMonth()+1}-${cur.getDate()}`;
+          const { workStart, workEnd } = clampToWorkDayRange(cur);
+          const segStart = new Date(Math.max(workStart.getTime(), s.getTime()));
+          const segEnd = new Date(Math.min(workEnd.getTime(), e.getTime()));
+          const addMs = segEnd > segStart ? (segEnd.getTime() - segStart.getTime()) : 0;
+          dayTotals.set(k, (dayTotals.get(k) || 0) + addMs);
+          cur = new Date(cur.getTime() + 86400000);
+        }
+      }
+      // Apply daily cap of 8h globally
+      let totalMs = 0;
+      for (const [, ms] of dayTotals.entries()) {
+        totalMs += Math.min(ms, 8*3600000);
+      }
+      // counts based on active/non-active per SHP
+      let blockedCount = 0;
+      let unblockedCount = 0;
+      for (const [, arr] of byUs.entries()) {
+        let hasActive = false;
+        for (const r of arr) {
+          if (!r.endTime) { hasActive = true; break; }
+        }
+        if (hasActive) blockedCount += 1; else unblockedCount += 1;
+      }
+      return { totalMs, blockedCount, unblockedCount };
+    }
+
+    function renderMetrics() {
+      const m = computeMetrics(lastSnapshotDocs);
+      totalBlockedEl.textContent = formatDuration(m.totalMs);
+      countBlockedEl.textContent = String(m.blockedCount);
+      countUnblockedEl.textContent = String(m.unblockedCount);
+    }
+
+    function renderReasonChart() {
+      const canonicalReason = (x) => {
+        const s = String(x || '').trim().toLowerCase();
+        if (!s) return 'Outro';
+        if (s.includes('ambiente')) return 'Ambiente';
+        if (s.includes('depend')) return 'Dependência Externa';
+        if (s.includes('bug')) return 'Bug Interno';
+        if (s.includes('getnet')) return 'Getnet';
+        if (s.includes('occ')) return 'OCC';
+        if (s.includes('especifi')) return 'Falta de Especificação';
+        return 'Outro';
+      };
+      const sums = new Map();
+      const finishedDocs = lastSnapshotDocs.filter(r => !!r.endTime);
+      for (const r of finishedDocs) {
+        const start = r.startTime instanceof Date ? r.startTime : new Date(r.startTime);
+        const end = r.endTime ? (r.endTime instanceof Date ? r.endTime : new Date(r.endTime)) : null;
+        const dur = chartsWorkHours ? workingMsBetween(start, end) : (end && start ? Math.max(end.getTime() - start.getTime(), 0) : 0);
+        const key = canonicalReason(r.reason);
+        sums.set(key, (sums.get(key) || 0) + Math.max(dur,0));
+      }
+      const motives = ['Ambiente','Dependência Externa','Bug Interno','Getnet','OCC','Falta de Especificação'];
+      const reasonsPresent = new Set(finishedDocs.map(r => canonicalReason(r.reason)).filter(r => motives.includes(r)));
+      const labels = motives.filter(k => reasonsPresent.has(k));
+      let data = labels.map(k => Math.round((sums.get(k) || 0)/3600000*100)/100);
+      const totalHours = Math.round(data.reduce((a,b)=> a + (b || 0), 0)*100)/100;
+      const colorMap = {
+        'Ambiente': '#10b981',
+        'Dependência Externa': '#f59e0b',
+        'Bug Interno': '#ef4444',
+        'Getnet': '#8b5cf6',
+        'OCC': '#14b8a6',
+        'Falta de Especificação': '#3b82f6',
+        'Outro': '#9ca3af'
+      };
+      const colors = labels.map(k => colorMap[k] || '#9ca3af');
+      const ctx = document.getElementById("reasonChart");
+      if (!reasonChart) {
+        reasonChart = new Chart(ctx, {
+          type: "pie",
+          data: { labels, datasets: [{ data, backgroundColor: colors }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" }, centerText: { text: `${totalHours}h` } } }
+        });
+      } else {
+        reasonChart.data.labels = labels;
+        reasonChart.data.datasets[0].data = data;
+        reasonChart.data.datasets[0].backgroundColor = colors;
+        if (!reasonChart.options.plugins) reasonChart.options.plugins = {};
+        reasonChart.options.plugins.centerText = { text: `${totalHours}h` };
+        reasonChart.update();
+      }
+    }
+
+    function renderReasonChartBlocked() {
+      const canonicalReason = (x) => {
+        const s = String(x || '').trim().toLowerCase();
+        if (!s) return 'Outro';
+        if (s.includes('ambiente')) return 'Ambiente';
+        if (s.includes('depend')) return 'Dependência Externa';
+        if (s.includes('bug')) return 'Bug Interno';
+        if (s.includes('getnet')) return 'Getnet';
+        if (s.includes('occ')) return 'OCC';
+        if (s.includes('especifi')) return 'Falta de Especificação';
+        return 'Outro';
+      };
+      const sums = new Map();
+      const activeDocs = lastSnapshotDocs.filter(r => !r.endTime);
+      for (const r of activeDocs) {
+        const start = r.startTime instanceof Date ? r.startTime : new Date(r.startTime);
+        const dur = chartsWorkHours ? workingMsBetween(start, new Date()) : Math.max(Date.now() - start.getTime(), 0);
+        const key = canonicalReason(r.reason);
+        sums.set(key, (sums.get(key) || 0) + Math.max(dur,0));
+      }
+      const motives = ['Ambiente','Dependência Externa','Bug Interno','Getnet','OCC','Falta de Especificação'];
+      const reasonsPresent = new Set(activeDocs.map(r => canonicalReason(r.reason)).filter(r => motives.includes(r)));
+      const labels = motives.filter(k => reasonsPresent.has(k));
+      let data = labels.map(k => Math.round((sums.get(k) || 0)/3600000*100)/100);
+      const colorMap = {
+        'Ambiente': '#10b981',
+        'Dependência Externa': '#f59e0b',
+        'Bug Interno': '#ef4444',
+        'Getnet': '#8b5cf6',
+        'OCC': '#14b8a6',
+        'Falta de Especificação': '#3b82f6',
+        'Outro': '#9ca3af'
+      };
+      const colors = labels.map(k => colorMap[k] || '#9ca3af');
+      const ctx = document.getElementById('reasonChartBlocked');
+      let total = data.reduce((a,b)=> a + (b || 0), 0);
+      if (activeDocs.length > 0 && total <= 0 && chartsWorkHours) {
+        const sumsTotal = new Map();
+        for (const r of activeDocs) {
+          const start = r.startTime instanceof Date ? r.startTime : new Date(r.startTime);
+          const key = canonicalReason(r.reason);
+          const durTot = Math.max(Date.now() - start.getTime(), 0);
+          sumsTotal.set(key, (sumsTotal.get(key) || 0) + durTot);
+        }
+        data = labels.map(k => Math.round((sumsTotal.get(k) || 0)/3600000*100)/100);
+        total = data.reduce((a,b)=> a + (b || 0), 0);
+      }
+      const totalHours = Math.round(data.reduce((a,b)=> a + (b || 0), 0)*100)/100;
+      if (activeDocs.length === 0) {
+        if (reasonChartBlocked) { try { reasonChartBlocked.destroy(); } catch(e) {} reasonChartBlocked = null; }
+        if (ctx) ctx.classList.add('hidden');
+        if (reasonChartBlockedEmpty) reasonChartBlockedEmpty.classList.remove('hidden');
+        return;
+      }
+      if (reasonChartBlockedEmpty) reasonChartBlockedEmpty.classList.add('hidden');
+      if (ctx) ctx.classList.remove('hidden');
+      if (!reasonChartBlocked) {
+        reasonChartBlocked = new Chart(ctx, {
+          type: 'pie',
+          data: { labels, datasets: [{ data, backgroundColor: colors }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' }, centerText: { text: `${totalHours}h` } } }
+        });
+      } else {
+        reasonChartBlocked.data.labels = labels;
+        reasonChartBlocked.data.datasets[0].data = data;
+        reasonChartBlocked.data.datasets[0].backgroundColor = colors;
+        if (!reasonChartBlocked.options.plugins) reasonChartBlocked.options.plugins = {};
+        reasonChartBlocked.options.plugins.centerText = { text: `${totalHours}h` };
+        reasonChartBlocked.update();
+      }
+    }
+
+    function renderActiveCarousel() {
+      const active = lastSnapshotDocs.filter(r => !r.endTime);
+      const slidesData = active.map(r => {
+        const start = r.startTime instanceof Date ? r.startTime : new Date(r.startTime);
+        const durMs = chartsWorkHours ? workingMsBetween(start, new Date()) : Math.max(Date.now() - start.getTime(), 0);
+        return { usId: r.usId, usTitle: r.usTitle, reason: r.reason, start, durMs };
+      }).sort((a,b)=> b.durMs - a.durMs);
+      if (!activeCarouselSlides || !activeCarouselEmpty) return;
+      activeCarouselSlides.innerHTML = "";
+      if (slidesData.length === 0) {
+        activeCarouselEmpty.classList.remove('hidden');
+        carouselIndex = 0;
+        if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
+        return;
+      }
+      activeCarouselEmpty.classList.add('hidden');
+      if (carouselDotsEl) carouselDotsEl.innerHTML = '';
+      for (const s of slidesData) {
+        const div = document.createElement('div');
+        div.className = 'w-full flex-shrink-0';
+        const startStr = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(s.start);
+        div.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="border border-gray-200 rounded-md p-3">
+              <div class="text-sm text-gray-500">SHP</div>
+              <div class="text-lg font-semibold">${s.usId}</div>
+            </div>
+            <div class="border border-gray-200 rounded-md p-3">
+              <div class="text-sm text-gray-500">Motivo</div>
+              <div class="text-lg font-semibold">${s.reason || ''}</div>
+            </div>
+            <div class="border border-gray-200 rounded-md p-3">
+              <div class="text-sm text-gray-500">Tempo Bloqueado</div>
+              <div class="text-lg font-semibold">${formatDuration(Math.max(s.durMs,0))}</div>
+            </div>
+          </div>
+          <div class="mt-2 text-sm text-gray-600">${s.usTitle || ''} • Início: ${startStr}</div>
+        `;
+        activeCarouselSlides.appendChild(div);
+      }
+      if (carouselDotsEl) {
+        for (let i = 0; i < slidesData.length; i++) {
+          const b = document.createElement('button');
+          b.setAttribute('data-idx', String(i));
+          b.className = i===carouselIndex ? 'w-2 h-2 rounded-full bg-gray-800' : 'w-2 h-2 rounded-full bg-gray-300';
+          b.addEventListener('click', ()=>{ carouselIndex = i; updateCarouselTransform(); updateCarouselDots(slidesData.length); if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; } });
+          carouselDotsEl.appendChild(b);
+        }
+      }
+      carouselIndex = Math.min(carouselIndex, slidesData.length - 1);
+      updateCarouselTransform();
+      if (carouselTimer) { clearInterval(carouselTimer); }
+      carouselTimer = setInterval(()=>{
+        carouselIndex = (carouselIndex + 1) % slidesData.length;
+        updateCarouselTransform();
+        updateCarouselDots(slidesData.length);
+      }, 5000);
+      if (carouselPrevBtn) {
+        carouselPrevBtn.onclick = ()=>{
+          if (slidesData.length === 0) return;
+          carouselIndex = (carouselIndex - 1 + slidesData.length) % slidesData.length;
+          updateCarouselTransform();
+          updateCarouselDots(slidesData.length);
+          if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
+        };
+      }
+      if (carouselNextBtn) {
+        carouselNextBtn.onclick = ()=>{
+          if (slidesData.length === 0) return;
+          carouselIndex = (carouselIndex + 1) % slidesData.length;
+          updateCarouselTransform();
+          updateCarouselDots(slidesData.length);
+          if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
+        };
+      }
+      window.addEventListener('resize', updateCarouselTransform);
+      bindCarouselDrag();
+    }
+
+    function renderTable() {
+      const active = lastSnapshotDocs.filter(r => !r.endTime);
+      const rows = active.map(r => {
+        const start = r.startTime instanceof Date ? r.startTime : new Date(r.startTime);
+        const durMs = workingMsBetween(start, new Date());
+        return { id: r.id, usId: r.usId, usTitle: r.usTitle, reason: r.reason, responsavel: r.responsavel || "", start, durMs, externalLink: r.externalLink };
+      }).sort((a,b)=> b.durMs - a.durMs);
+      blockedTableBody.innerHTML = "";
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        const isCritical = row.durMs >= 8*3600000;
+        tr.className = isCritical ? "bg-red-50" : "";
+        const startStr = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(row.start);
+        tr.innerHTML = `
+          <td class="px-3 py-2">
+            <button data-us="${row.usId}" class="text-indigo-700 hover:underline">${row.usId}</button>
+          </td>
+          <td class="px-3 py-2">${row.usTitle || ""}</td>
+          <td class="px-3 py-2">${row.reason || ""}</td>
+          <td class="px-3 py-2">${row.responsavel || ""}</td>
+          <td class="px-3 py-2">${startStr}</td>
+          <td class="px-3 py-2 font-medium">${formatDuration(row.durMs)}</td>
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <button data-doc="${row.id}" class="end-btn px-3 py-1 bg-emerald-600 text-white rounded">Encerrar</button>
+              <button data-us="${row.usId}" data-doc="${row.id}" class="history-btn px-3 py-1 bg-gray-100 text-gray-900 rounded">Ver histórico</button>
+            </div>
+          </td>
+        `;
+        blockedTableBody.appendChild(tr);
+      }
+      blockedTableBody.querySelectorAll(".end-btn").forEach(btn=>{
+        btn.addEventListener("click", async (e)=>{
+          const id = e.currentTarget.getAttribute("data-doc");
+          if (DEMO_MODE) {
+            const item = demoDocs.find(d=> d.id===id);
+            if (item && !item.endTime) { item.endTime = new Date(); attachListener(); }
+            return;
+          }
+          if (!currentUser) return;
+          const { doc, updateDoc, Timestamp } = window.__firebase;
+          const ref = doc(db, `artifacts/demo/public/data/impediments`, id);
+          await updateDoc(ref, { endTime: Timestamp.fromDate(new Date()) });
+        });
+      });
+      blockedTableBody.querySelectorAll("button[data-us]").forEach(btn=>{
+        btn.addEventListener("click", (e)=> openUsModal(e.currentTarget.getAttribute("data-us")));
+      });
+      blockedTableBody.querySelectorAll(".edit-btn").forEach(btn=>{
+        btn.addEventListener("click", (e)=>{
+          const id = e.currentTarget.getAttribute("data-doc");
+          openEditModal(id);
+        });
+      });
+    }
+
+    function getSprintWindow() {
+      // Se a sprint foi iniciada, usar as datas da sprint
+      if (sprintIniciada && sprintStartDate && sprintEndDate) {
+        const startDate = sprintStartDate;
+        const endDate = sprintEndDate;
+        const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+        const labels = Array.from({length: days}, (_,i)=> {
+          const dd = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+          return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(dd);
+        });
+        return { startDate, endDate, labels, startDay: startDate.getDate() };
+      }
+      
+      // Se não, usar o cálculo padrão baseado na data atual
+      const d = new Date();
+      const y = d.getFullYear();
+      const m = d.getMonth();
+      const dim = daysInMonth(y,m);
+      const startDay = d.getDate() <= 15 ? 1 : 16;
+      const endDay = Math.min(startDay + 14, dim);
+      const startDate = new Date(y, m, startDay, 0, 0, 0);
+      const endDate = new Date(y, m, endDay, 23, 59, 59, 999);
+      const days = endDay - startDay + 1;
+      const labels = Array.from({length: days}, (_,i)=> {
+        const dd = new Date(y, m, startDay + i);
+        return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(dd);
+      });
+      return { startDate, endDate, labels, startDay };
+    }
+
+    function renderTimelineChart() {
+      const isTs = (t) => t && typeof t.toDate === 'function';
+      const { startDate, endDate, labels, startDay } = getSprintWindow();
+      
+      // Modificar labels se a sprint estiver iniciada
+      const modifiedLabels = sprintIniciada && labels.length >= 15 ? [...labels] : labels;
+      if (sprintIniciada && modifiedLabels.length >= 15) {
+        modifiedLabels[0] = `${modifiedLabels[0]} (INICIO)`;
+        modifiedLabels[modifiedLabels.length - 1] = `${modifiedLabels[modifiedLabels.length - 1]} (FIM)`;
+      }
+      
+      const motives = ['Ambiente','Dependência Externa','Bug Interno','Getnet','OCC','Falta de Especificação'];
+      const colorMap = {
+        'Ambiente': '#10b981',
+        'Dependência Externa': '#f59e0b',
+        'Bug Interno': '#ef4444',
+        'Getnet': '#8b5cf6',
+        'OCC': '#14b8a6',
+        'Falta de Especificação': '#3b82f6'
+      };
+      const canonicalReason = (x) => {
+        const s = String(x || '').trim().toLowerCase();
+        if (s.includes('ambiente')) return 'Ambiente';
+        if (s.includes('depend')) return 'Dependência Externa';
+        if (s.includes('bug')) return 'Bug Interno';
+        if (s.includes('getnet')) return 'Getnet';
+        if (s.includes('occ')) return 'OCC';
+        if (s.includes('especifi')) return 'Falta de Especificação';
+        return 'Outro';
+      };
+      const binsByReason = {};
+      for (const m of motives) binsByReason[m] = Array(modifiedLabels.length).fill(0);
+      const addRange = (s, e, reason) => {
+        const start = s < startDate ? startDate : s;
+        const end = e ? (e > endDate ? endDate : e) : new Date();
+        if (end <= start) return;
+        let cur = new Date(start);
+        while (cur <= end) {
+          const dayIdx = (cur.getDate() - startDay);
+          if (dayIdx >= 0 && dayIdx < modifiedLabels.length) {
+            const dayEnd = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 23, 59, 59, 999);
+            const sliceEnd = end < dayEnd ? end : dayEnd;
+            const ms = Math.max(sliceEnd.getTime() - cur.getTime(), 0);
+            binsByReason[reason][dayIdx] += ms;
+            cur = new Date(dayEnd.getTime() + 1);
+          } else {
+            cur = new Date(cur.getTime() + 86400000);
+          }
+        }
+      };
+      for (const r of lastSnapshotDocs) {
+        const s = isTs(r.startTime) ? r.startTime.toDate() : (r.startTime instanceof Date ? r.startTime : new Date(r.startTime));
+        const e = r.endTime ? (isTs(r.endTime) ? r.endTime.toDate() : (r.endTime instanceof Date ? r.endTime : new Date(r.endTime))) : null;
+        const m = canonicalReason(r.reason);
+        if (motives.includes(m)) addRange(s, e, m);
+      }
+      const hoursByReason = motives.map(m => binsByReason[m].map(ms => Math.round(ms/3600000*100)/100));
+      for (let i = 0; i < modifiedLabels.length; i++) {
+        const total = hoursByReason.reduce((acc, arr) => acc + (arr[i] || 0), 0);
+        if (total > 8) {
+          const factor = 8 / total;
+          for (const arr of hoursByReason) arr[i] = Math.round(arr[i] * factor * 100) / 100;
+        }
+      }
+      const datasets = motives.map((m, idx) => ({
+        label: m,
+        data: hoursByReason[idx],
+        backgroundColor: colorMap[m],
+        stack: 'stack1',
+        maxBarThickness: 28
+      }));
+      const ctx = document.getElementById('timelineChart');
+      if (!timelineChart) {
+        timelineChart = new Chart(ctx, {
+          type: 'bar',
+          data: { labels: modifiedLabels, datasets },
+          options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true, ticks: { color: (c)=> { const l = c.chart?.data?.labels?.[c.index] || ''; const s = String(l).toLowerCase(); return s.includes('(inicio)') || s.includes('(fim)') ? '#10b981' : undefined; }, font: (c)=> { const l = c.chart?.data?.labels?.[c.index] || ''; const s = String(l).toLowerCase(); return s.includes('(inicio)') || s.includes('(fim)') ? { weight: 'bold' } : {}; } } }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Horas' } } }, plugins: { legend: { position: 'bottom' } } }
+        });
+      } else {
+        timelineChart.data.labels = modifiedLabels;
+        timelineChart.data.datasets = datasets;
+        timelineChart.update();
+      }
+    }
+
+    function renderUnblockedTable() {
+      const isTs = (t) => t && typeof t.toDate === 'function';
+      const finished = lastSnapshotDocs.filter(r => !!r.endTime);
+      const rows = finished.map(r => {
+        const start = isTs(r.startTime) ? r.startTime.toDate() : (r.startTime instanceof Date ? r.startTime : new Date(r.startTime));
+        const end = isTs(r.endTime) ? r.endTime.toDate() : (r.endTime instanceof Date ? r.endTime : new Date(r.endTime));
+        const durMs = workingMsBetween(start, end);
+        return { id: r.id, usId: r.usId, usTitle: r.usTitle, reason: r.reason, responsavel: r.responsavel || "", start, end, durMs, description: r.description || "" };
+      }).sort((a,b)=> (b.end?.getTime?.() || 0) - (a.end?.getTime?.() || 0));
+      if (!unblockedTableBody) return;
+      unblockedTableBody.innerHTML = "";
+      if (rows.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td class="px-3 py-2 text-gray-500" colspan="7">Nenhuma SHP desbloqueada nesta sprint</td>`;
+        unblockedTableBody.appendChild(tr);
+        return;
+      }
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        const startStr = row.start ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(row.start) : "";
+        const endStr = row.end ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(row.end) : "";
+        tr.innerHTML = `
+          <td class="px-3 py-2">${row.usId}</td>
+          <td class="px-3 py-2">${row.usTitle || ""}</td>
+          <td class="px-3 py-2">${row.reason || ""}</td>
+          <td class="px-3 py-2">${row.responsavel || ""}</td>
+          <td class="px-3 py-2">${startStr}</td>
+          <td class="px-3 py-2">${endStr}</td>
+          <td class="px-3 py-2">${formatDuration(Math.max(row.durMs,0))}</td>
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <button data-doc="${row.id}" class="edit-unblocked-btn px-2 py-1 bg-blue-600 text-white rounded text-xs">Reabrir</button>
+              <button data-us="${row.usId}" data-doc="${row.id}" class="history-btn px-2 py-1 bg-gray-100 text-gray-900 rounded text-xs">Ver histórico</button>
+            </div>
+          </td>
+        `;
+        unblockedTableBody.appendChild(tr);
+      }
+      unblockedTableBody.querySelectorAll('.edit-unblocked-btn').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          const id = e.currentTarget.getAttribute('data-doc');
+          openEditUnblockedModal(id);
+        });
+      });
+      unblockedTableBody.querySelectorAll('button[data-us]').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          const usId = e.currentTarget.getAttribute('data-us');
+          openUsModal(usId);
+        });
+      });
+    }
+
+    function openUnblockedModal() {
+      const isTs = (t) => t && typeof t.toDate === 'function';
+      const finished = lastSnapshotDocs.filter(r => !!r.endTime);
+      const rows = finished.map(r => {
+        const start = isTs(r.startTime) ? r.startTime.toDate() : (r.startTime instanceof Date ? r.startTime : new Date(r.startTime));
+        const end = isTs(r.endTime) ? r.endTime.toDate() : (r.endTime instanceof Date ? r.endTime : new Date(r.endTime));
+        const durMs = workingMsBetween(start, end);
+        return { id: r.id, usId: r.usId, usTitle: r.usTitle, reason: r.reason, responsavel: r.responsavel || "", start, end, durMs };
+      }).sort((a,b)=> (b.end?.getTime?.() || 0) - (a.end?.getTime?.() || 0));
+      if (!unblockedModalBody) return;
+      unblockedModalBody.innerHTML = "";
+      const fmt = (d)=> d ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d) : "";
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2">${row.usId}</td>
+          <td class="px-3 py-2">${row.usTitle || ""}</td>
+          <td class="px-3 py-2">${row.reason || ""}</td>
+          <td class="px-3 py-2">${row.responsavel || ""}</td>
+          <td class="px-3 py-2">${fmt(row.start)}</td>
+          <td class="px-3 py-2">${fmt(row.end)}</td>
+          <td class="px-3 py-2">${formatDuration(Math.max(row.durMs,0))}</td>
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <button data-us="${row.usId}" class="reopen-btn px-3 py-1 bg-gray-100 text-gray-900 rounded">Reabrir</button>
+              <button data-us="${row.usId}" data-doc="${row.id}" class="history-btn px-3 py-1 bg-gray-100 text-gray-900 rounded">Ver histórico</button>
+            </div>
+          </td>
+        `;
+        unblockedModalBody.appendChild(tr);
+      }
+      unblockedModalBody.querySelectorAll('.reopen-btn').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          const usId = e.currentTarget.getAttribute('data-us');
+          openReopenModal(usId);
+        });
+      });
+      unblockedModalBody.querySelectorAll('button[data-us]').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          const usId = e.currentTarget.getAttribute('data-us');
+          const docId = e.currentTarget.getAttribute('data-doc') || '';
+          openUsModal(usId, docId);
+        });
+      });
+      unblockedSubtitle.textContent = `Sprint: ${currentSprintId}`;
+      setActiveModal(unblockedModal, unblockedModalActive);
+      animateOpen(unblockedModal);
+    }
+
+    if (cardUnblocked) cardUnblocked.addEventListener('click', openUnblockedModal);
+    if (headerHistoryBtn) headerHistoryBtn.addEventListener('click', openUnblockedModal);
+    if (cardBlocked) cardBlocked.addEventListener('click', openBlockedModal);
+
+    function renderAll() {
+      renderMetrics();
+      renderReasonChart();
+      renderReasonChartBlocked();
+      renderTable();
+      renderTimelineChart();
+      renderUnblockedTable();
+      renderSprintStatus();
+      renderActiveCarousel();
+    }
+
+    function renderSprintStatus() {
+      if (currentSprintId && sprintIniciada && sprintStartDate && sprintEndDate) {
+        const dataInicioBr = formatarDataBrasileira(sprintStartDate);
+        const dataFimBr = formatarDataBrasileira(sprintEndDate);
+        sprintStatusEl.textContent = `Sprint iniciada: ${dataInicioBr} até ${dataFimBr}`;
+        sprintStatusEl.classList.remove('hidden');
+        sprintStatusEl.classList.add('bg-green-100', 'text-green-800');
+      } else {
+        sprintStatusEl.classList.add('hidden');
+      }
+    }
+
+    function loadSprintState() {
+      // Carregar estado da sprint do localStorage
+      const savedState = localStorage.getItem('sprintState');
+      if (savedState) {
+        try {
+          const state = JSON.parse(savedState);
+          if (state.iniciada && state.sprintId && state.startDate && state.endDate) {
+            currentSprintId = state.sprintId;
+            const startStr = typeof state.startDate === 'string' ? state.startDate.split('T')[0] : state.startDate;
+            const endStr = typeof state.endDate === 'string' ? state.endDate.split('T')[0] : state.endDate;
+            sprintStartDate = parseDateInput(startStr) || new Date(state.startDate);
+            sprintEndDate = parseDateInput(endStr) || new Date(state.endDate);
+            sprintIniciada = state.iniciada;
+            
+            // Atualizar os campos da interface
+            sprintIdInput.value = currentSprintId;
+            sprintStartDateInput.value = sprintStartDate.toISOString().split('T')[0];
+            
+            // Renderizar o status
+            renderSprintStatus();
+          }
+        } catch (e) {
+          console.error('Erro ao carregar estado da sprint:', e);
+        }
+      }
+    }
+
+    function openUsModal(usId, focusDocId) {
+      previousModal = null; previousBadge = null;
+      if (!blockedModal.classList.contains('hidden')) { previousModal = blockedModal; previousBadge = blockedModalActive; }
+      else if (!unblockedModal.classList.contains('hidden')) { previousModal = unblockedModal; previousBadge = unblockedModalActive; }
+      const docs = lastSnapshotDocs.filter(d => d.usId === usId);
+      const title = docs[0]?.usTitle || usId;
+      modalTitle.textContent = title;
+      modalSubtitle.textContent = `SHP: ${usId} • Registros na ${currentSprintId}`;
+      modalBody.innerHTML = "";
+      const toDateMaybe = (x)=> x ? (typeof x.toDate === 'function' ? x.toDate() : (x instanceof Date ? x : new Date(x))) : null;
+      const rows = docs.map(r=>{
+        const start = r.startTime instanceof Date ? r.startTime : new Date(r.startTime);
+        const end = r.endTime ? (r.endTime instanceof Date ? r.endTime : new Date(r.endTime)) : null;
+        const dur = chartsWorkHours
+          ? (end ? workingMsBetween(start, end) : workingMsBetween(start, new Date()))
+          : Math.max((end ? end.getTime() : Date.now()) - start.getTime(), 0);
+        const reopenedAt = toDateMaybe(r.reopenedAt);
+        return {
+          id: r.id || '',
+          reason: r.reason || "",
+          reopened: !!reopenedAt,
+          reopenedFrom: r.reopenedFrom || "",
+          responsavel: r.responsavel || "",
+          startStr: new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(start),
+          endStr: end ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(end) : "—",
+          durStr: formatDuration(dur),
+          description: r.description || ""
+        };
+      }).sort((a,b)=> a.startStr.localeCompare(b.startStr));
+      for (const row of rows) {
+        const tr = document.createElement("tr");
+        tr.setAttribute('id', `row-${row.id}`);
+        tr.innerHTML = `
+          <td class="px-3 py-2">${row.reason}${row.reopened ? ' (Reaberto)' : ''}</td>
+          <td class="px-3 py-2">${row.startStr}</td>
+          <td class="px-3 py-2">${row.endStr}</td>
+          <td class="px-3 py-2">${row.durStr}</td>
+          <td class="px-3 py-2">${row.responsavel}</td>
+          <td class="px-3 py-2">${row.description}</td>
+          <td class="px-3 py-2">${row.reopenedFrom ? `<button title='Destacar o registro de origem desta reabertura' class='origin-btn px-2 py-1 bg-gray-100 text-gray-900 rounded text-xs' data-ref='${row.reopenedFrom}'>Ver origem</button>` : ''}</td>
+        `;
+        modalBody.appendChild(tr);
+      }
+      modalBody.addEventListener('click', (e)=>{
+        const btn = e.target.closest('.origin-btn');
+        if (!btn) return;
+        const ref = btn.getAttribute('data-ref');
+        if (!ref) return;
+        try {
+          const target = document.getElementById(`row-${ref}`);
+          if (target) {
+            target.classList.add('bg-yellow-50');
+            target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(()=> target.classList.remove('bg-yellow-50'), 2000);
+          }
+        } catch (e) {}
+      });
+      if (!focusDocId) {
+        const latest = docs.filter(d=> !!d.reopenedAt).sort((a,b)=>{
+          const av = toDateMaybe(a.reopenedAt)?.getTime() || 0;
+          const bv = toDateMaybe(b.reopenedAt)?.getTime() || 0;
+          return bv - av;
+        })[0];
+        focusDocId = latest?.id || '';
+      }
+      if (focusDocId) {
+        const target = document.getElementById(`row-${focusDocId}`);
+        if (target) {
+          target.classList.add('bg-yellow-50');
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(()=> target.classList.remove('bg-yellow-50'), 2500);
+        }
+      }
+      setActiveModal(usModal, usModalActive);
+      animateOpen(usModal);
+    }
+
+    function anyModalOpen(){
+      return !usModal.classList.contains('hidden') || !unblockedModal.classList.contains('hidden') || !blockedModal.classList.contains('hidden') || !editModal.classList.contains('hidden') || !reopenModal.classList.contains('hidden') || !filterModal.classList.contains('hidden');
+    }
+    function syncBackdrop(){
+      if (anyModalOpen()) modalBackdrop.classList.remove('hidden'); else modalBackdrop.classList.add('hidden');
+    }
+    function closeUsModal() {
+      animateClose(usModal);
+      if (previousModal) {
+        // Garantir que a tela anterior volte ao topo
+        setTimeout(()=>{ setActiveModal(previousModal, previousBadge); }, 200);
+      }
+    }
+
+    closeModalBtn.addEventListener("click", closeUsModal);
+    modalBackdrop.addEventListener("click", ()=> {
+      if (!usModal.classList.contains('hidden')) { closeUsModal(); return; }
+      if (!editModal.classList.contains('hidden')) { closeEditModal(); return; }
+      if (!reopenModal.classList.contains('hidden')) { closeReopenModal(); return; }
+      if (!blockedModal.classList.contains('hidden')) { closeBlockedModal(); return; }
+      if (!unblockedModal.classList.contains('hidden')) { closeUnblockedModal(); return; }
+      if (!filterModal.classList.contains('hidden')) { closeFilterModal(); return; }
+      syncBackdrop();
+    });
+
+    function openEditUnblockedModal(docId) {
+      editingDocId = docId;
+      const doc = lastSnapshotDocs.find(d=> d.id===docId);
+      if (!doc) return;
+      
+      // Preencher campos com os dados atuais
+      editTitleEl.value = doc.usTitle || '';
+      editReasonEl.value = doc.reason || 'Ambiente';
+      editExternalLinkEl.value = doc.externalLink || '';
+      editDescriptionEl.value = doc.description || '';
+      editNewDescriptionEl.value = ''; // Limpar nova descrição
+      
+      editModal.classList.remove('hidden');
+      syncBackdrop();
+    }
+    function closeUnblockedModal(){
+      unblockedModal.classList.add("hidden");
+      syncBackdrop();
+    }
+    if (closeUnblockedModalBtn) closeUnblockedModalBtn.addEventListener("click", closeUnblockedModal);
+
+    function openBlockedModal() {
+      
+      const isTs = (t) => t && typeof t.toDate === 'function';
+      const active = lastSnapshotDocs.filter(r => !r.endTime);
+      const rows = active.map(r => {
+        const start = isTs(r.startTime) ? r.startTime.toDate() : (r.startTime instanceof Date ? r.startTime : new Date(r.startTime));
+        const durMs = workingMsBetween(start, new Date());
+        return { id: r.id, usId: r.usId, usTitle: r.usTitle, reason: r.reason, responsavel: r.responsavel || "", start, durMs };
+      }).sort((a,b)=> (b.durMs || 0) - (a.durMs || 0));
+      if (!blockedModalBody) return;
+      blockedModalBody.innerHTML = "";
+      const fmt = (d)=> d ? new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d) : "";
+      for (const row of rows) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="px-3 py-2">${row.usId}</td>
+          <td class="px-3 py-2">${row.usTitle || ""}</td>
+          <td class="px-3 py-2">${row.reason || ""}</td>
+          <td class="px-3 py-2">${row.responsavel || ""}</td>
+          <td class="px-3 py-2">${fmt(row.start)}</td>
+          <td class="px-3 py-2">${formatDuration(Math.max(row.durMs,0))}</td>
+          <td class="px-3 py-2">
+            <div class="flex items-center gap-2">
+              <button data-doc="${row.id}" class="end-btn px-3 py-1 bg-emerald-600 text-white rounded">Encerrar</button>
+              <button data-us="${row.usId}" data-doc="${row.id}" class="history-btn px-3 py-1 bg-gray-100 text-gray-900 rounded">Ver histórico</button>
+            </div>
+          </td>
+        `;
+        blockedModalBody.appendChild(tr);
+      }
+      blockedModalBody.querySelectorAll('.end-btn').forEach(btn=>{
+        btn.addEventListener('click', async (e)=>{
+          const id = e.currentTarget.getAttribute('data-doc');
+          if (DEMO_MODE) {
+            const item = demoDocs.find(d=> d.id===id);
+            if (item && !item.endTime) { item.endTime = new Date(); attachListener(); }
+            return;
+          }
+          if (!currentUser) return;
+          const { doc, updateDoc, Timestamp } = window.__firebase;
+          const ref = doc(db, `artifacts/demo/public/data/impediments`, id);
+          await updateDoc(ref, { endTime: Timestamp.fromDate(new Date()) });
+        });
+      });
+      blockedModalBody.querySelectorAll('button[data-us]').forEach(btn=>{
+        btn.addEventListener('click', (e)=>{
+          const usId = e.currentTarget.getAttribute('data-us');
+          const docId = e.currentTarget.getAttribute('data-doc') || '';
+          openUsModal(usId, docId);
+        });
+      });
+      blockedSubtitle.textContent = `Sprint: ${currentSprintId}`;
+      setActiveModal(blockedModal, blockedModalActive);
+      animateOpen(blockedModal);
+    }
+
+    function closeBlockedModal(){ animateClose(blockedModal); }
+    if (closeBlockedModalBtn) closeBlockedModalBtn.addEventListener('click', closeBlockedModal);
+
+    function openEditModal(docId) {
+      editingDocId = docId;
+      const doc = lastSnapshotDocs.find(d=> d.id===docId);
+      if (!doc) return;
+      editTitleEl.value = doc.usTitle || '';
+      editReasonEl.value = doc.reason || 'Ambiente';
+      editExternalLinkEl.value = doc.externalLink || '';
+      editDescriptionEl.value = doc.description || '';
+      setActiveModal(editModal, editModalActive);
+      animateOpen(editModal);
+    }
+    function closeEditModal(){ editingDocId=null; animateClose(editModal); }
+    if (closeEditModalBtn) closeEditModalBtn.addEventListener('click', closeEditModal);
+    if (saveEditBtn) saveEditBtn.addEventListener('click', async ()=>{
+      if (!editingDocId) return;
+      
+      // Obter o documento original
+      const originalDoc = lastSnapshotDocs.find(d=> d.id===editingDocId);
+      if (!originalDoc) return;
+      
+      // Criar nova descrição combinando a antiga com a nova
+      const novaDescricao = editNewDescriptionEl.value.trim();
+      const descricaoAtual = editDescriptionEl.value.trim();
+      const descricaoFinal = novaDescricao 
+        ? `${descricaoAtual}\n\n[REABERTO EM ${new Date().toLocaleString('pt-BR')}]: ${novaDescricao}`
+        : descricaoAtual;
+      
+      // Criar novo impedimento com os dados atualizados
+      const newDoc = {
+        usId: originalDoc.usId,
+        usTitle: editTitleEl.value.trim(),
+        sprintId: currentSprintId,
+        startTime: new Date(), // Nova data de início
+        endTime: null, // Sem data de fim, pois está reaberto
+        reason: editReasonEl.value,
+        userId: DEMO_MODE ? (currentUser?.uid || 'demo') : (currentUser?.uid || ''),
+        externalLink: editExternalLinkEl.value.trim(),
+        description: descricaoFinal,
+        reopenedFrom: originalDoc.id,
+        reopenedAt: new Date()
+      };
+      
+      if (DEMO_MODE) {
+        demoDocs.push({ id: String(Date.now()), ...newDoc });
+        attachListener();
+        closeEditModal();
+        return;
+      }
+      if (!currentUser) return;
+      const { collection, addDoc, Timestamp } = window.__firebase;
+      const col = collection(db, `artifacts/demo/public/data/impediments`);
+      await addDoc(col, { ...newDoc, startTime: Timestamp.fromDate(new Date()), reopenedAt: Timestamp.fromDate(new Date()) });
+      closeEditModal();
+    });
+
+    function openReopenModal(usId) {
+      reopeningUsId = usId;
+      const last = lastSnapshotDocs.filter(d=> d.usId===usId).sort((a,b)=>{
+        const av = a.endTime ? (a.endTime instanceof Date ? a.endTime.getTime() : new Date(a.endTime).getTime()) : 0;
+        const bv = b.endTime ? (b.endTime instanceof Date ? b.endTime.getTime() : new Date(b.endTime).getTime()) : 0;
+        return bv - av;
+      })[0];
+      reopenTitleEl.value = last?.usTitle || '';
+      reopenReasonEl.value = last?.reason || 'Ambiente';
+      reopenExternalLinkEl.value = last?.externalLink || '';
+      reopenDescriptionEl.value = last?.description || '';
+      setActiveModal(reopenModal, reopenModalActive);
+      animateOpen(reopenModal);
+    }
+    function closeReopenModal(){ reopeningUsId=null; animateClose(reopenModal); }
+    if (closeReopenModalBtn) closeReopenModalBtn.addEventListener('click', closeReopenModal);
+    if (saveReopenBtn) saveReopenBtn.addEventListener('click', async ()=>{
+      if (!reopeningUsId) return;
+      const prev = lastSnapshotDocs.filter(d=> d.usId===reopeningUsId).sort((a,b)=>{
+        const av = a.endTime ? (a.endTime instanceof Date ? a.endTime.getTime() : new Date(a.endTime).getTime()) : 0;
+        const bv = b.endTime ? (b.endTime instanceof Date ? b.endTime.getTime() : new Date(b.endTime).getTime()) : 0;
+        return bv - av;
+      })[0];
+      const newDoc = {
+        usId: reopeningUsId,
+        usTitle: reopenTitleEl.value.trim(),
+        sprintId: currentSprintId,
+        startTime: new Date(),
+        endTime: null,
+        reason: reopenReasonEl.value,
+        userId: DEMO_MODE ? (currentUser?.uid || 'demo') : (currentUser?.uid || ''),
+        externalLink: reopenExternalLinkEl.value.trim(),
+        description: reopenDescriptionEl.value.trim(),
+        reopenedFrom: prev?.id || null,
+        reopenedAt: new Date()
+      };
+      if (DEMO_MODE) {
+        demoDocs.push({ id: String(Date.now()), ...newDoc });
+        attachListener();
+        closeReopenModal();
+        return;
+      }
+      if (!currentUser) return;
+      const { collection, addDoc, Timestamp } = window.__firebase;
+      const col = collection(db, `artifacts/demo/public/data/impediments`);
+      await addDoc(col, { ...newDoc, startTime: Timestamp.fromDate(new Date()), reopenedAt: Timestamp.fromDate(new Date()) });
+      closeReopenModal();
+    });
+
+    async function handleGoogleSignIn(){
+      if (DEMO_MODE) { if (MOCK_LOGIN && loginOverlay) loginOverlay.classList.remove("hidden"); return; }
+      try {
+        const { GoogleAuthProvider, signInWithPopup, signInWithRedirect } = window.__firebase;
+        const provider = new GoogleAuthProvider();
+        await signInWithPopup(auth, provider);
+      } catch (error) {
+        if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/popup-closed-by-user') {
+          try {
+            const { GoogleAuthProvider, signInWithRedirect } = window.__firebase;
+            const provider = new GoogleAuthProvider();
+            await signInWithRedirect(auth, provider);
+          } catch (e) {
+            alert('Permita popups para este site e tente novamente.');
+          }
+        } else {
+          alert('Erro ao fazer login: ' + (error?.message || '')); 
+        }
+      }
+    }
+    signInBtn.addEventListener("click", handleGoogleSignIn);
+    if (overlaySignInBtn) overlaySignInBtn.addEventListener("click", handleGoogleSignIn);
+    signOutBtn.addEventListener("click", async ()=>{
+      if (DEMO_MODE) return;
+      const { signOut } = window.__firebase;
+      await signOut(auth);
+    });
+
+    if (!DEMO_MODE) {
+      const { onAuthStateChanged, signOut } = window.__firebase;
+      onAuthStateChanged(auth, async (user)=>{
+        currentUser = user || null;
+        const allowedDomain = "rethink.dev";
+        const emailOk = user && (user.email || "").toLowerCase().endsWith(`@${allowedDomain}`);
+        if (user && !emailOk) {
+          try { await signOut(auth); } catch(e) {}
+          if (loginOverlay) loginOverlay.classList.remove("hidden");
+          userInfoEl.textContent = "Visitante";
+          signInBtn.classList.remove("hidden");
+          signOutBtn.classList.add("hidden");
+          authRequiredEl.classList.add("hidden");
+          try { document.querySelector('main').style.display = 'none'; } catch(e) {}
+          try { alert(`Acesso permitido apenas para emails do domínio @${allowedDomain}`); } catch(e) {}
+          return;
+        }
+        userInfoEl.textContent = user ? `${user.displayName || user.email}` : "Visitante";
+        signInBtn.classList.toggle("hidden", !!user);
+        signOutBtn.classList.toggle("hidden", !user);
+        authRequiredEl.classList.toggle("hidden", !!user);
+        if (loginOverlay) loginOverlay.classList.toggle("hidden", !!user);
+        try { document.querySelector('main').style.display = user ? 'block' : 'none'; } catch(e) {}
+        if (user) { try { window.__authToken = await user.getIdToken(); } catch(e) {} }
+        renderTable();
+      });
+    } else {
+      currentUser = null;
+      userInfoEl.textContent = "Visitante";
+      if (MOCK_LOGIN) {
+        signInBtn.classList.remove("hidden");
+        signOutBtn.classList.add("hidden");
+        if (loginOverlay) loginOverlay.classList.remove("hidden");
+        if (loginMsgEl) loginMsgEl.textContent = "Mock de login ativo";
+      } else {
+        signInBtn.classList.add("hidden");
+        signOutBtn.classList.add("hidden");
+      }
+      authRequiredEl.classList.add("hidden");
+    }
+
+    startBlockBtn.addEventListener("click", async ()=>{
+      const usId = usIdEl.value.trim();
+      const usTitle = usTitleEl.value.trim();
+      const reason = String(reasonEl.value || '').trim();
+      const responsavel = String(responsavelEl?.value || '').trim();
+      const externalLink = externalLinkEl.value.trim();
+      const description = (descriptionEl?.value || "").trim();
+      if (!currentSprintId) currentSprintId = deriveCurrentSprintId();
+      if (authRequiredEl) authRequiredEl.classList.add('hidden');
+      if (!usId || !reason || !responsavel || !currentSprintId) {
+        if (!usId) { try { usIdEl.classList.add('border-red-500'); usIdEl.focus(); } catch(e) {} }
+        else if (!responsavel) { try { responsavelEl.classList.add('border-red-500'); responsavelEl.focus(); } catch(e) {} }
+        return;
+      }
+      if (DEMO_MODE) {
+        const item = { id: String(Date.now()), usId, usTitle, sprintId: currentSprintId, startTime: new Date(), endTime: null, reason, userId: (currentUser?.uid || "demo"), externalLink, description, responsavel };
+        demoDocs.push(item);
+        attachListener();
+      } else {
+        if (!currentUser) { if (authRequiredEl) authRequiredEl.classList.remove('hidden'); return; }
+        const { collection, addDoc, Timestamp } = window.__firebase;
+        const col = collection(db, `artifacts/demo/public/data/impediments`);
+        await addDoc(col, { usId, usTitle, sprintId: currentSprintId, startTime: Timestamp.fromDate(new Date()), endTime: null, reason, userId: currentUser.uid, externalLink, description, responsavel });
+      }
+      usIdEl.value = "";
+      usTitleEl.value = "";
+      externalLinkEl.value = "";
+      if (descriptionEl) descriptionEl.value = "";
+      if (responsavelEl) { responsavelEl.value = ""; try { responsavelEl.classList.remove('border-red-500'); } catch(e) {} }
+      try { usIdEl.classList.remove('border-red-500'); } catch(e) {}
+      
+    });
+
+    startSprintBtn.addEventListener("click", iniciarSprint);
+    
+    // Event listeners para validação do campo de data
+    sprintStartDateInput.addEventListener("change", validarDataSprint);
+    sprintStartDateInput.addEventListener("input", validarDataSprint);
+    
+    // Event listeners para máscara do campo Sprint ID
+    sprintIdInput.addEventListener("input", formatarSprintIDInput);
+    sprintIdInput.addEventListener("keyup", formatarSprintIDInput);
+    sprintIdInput.addEventListener("blur", formatarSprintIDInput);
+    
+
+    if (exportPdfBtn) exportPdfBtn.addEventListener("click", ()=>{
+      const fmt = (d)=> new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d);
+      const rows = lastSnapshotDocs.map(d=>{
+        const start = d.startTime instanceof Date ? d.startTime : new Date(d.startTime);
+        const end = d.endTime ? (d.endTime instanceof Date ? d.endTime : new Date(d.endTime)) : null;
+        const dur = (end ? end.getTime() : Date.now()) - start.getTime();
+        const durStr = `${Math.round(dur/3600000*100)/100} h`;
+        return `<tr><td>${d.usId||""}</td><td>${d.usTitle||""}</td><td>${d.reason||""}</td><td>${fmt(start)}</td><td>${end?fmt(end):""}</td><td>${durStr}</td><td>${d.description||""}</td></tr>`;
+      }).join("");
+      const html = `
+        <html><head><title>Impedimentos ${currentSprintId||"Sprint"}</title>
+        <meta charset="utf-8" />
+        <style>
+          *{box-sizing:border-box} body{font-family:Arial, sans-serif;padding:20px}
+          h1{font-size:18px;margin:0 0 6px}
+          table{width:100%;border-collapse:collapse}
+          th,td{border:1px solid #ddd;padding:6px;text-align:left}
+          th{background:#f3f4f6}
+          @media print { .no-print{display:none} }
+        </style>
+        </head><body>
+        <h1>Impedimentos - ${currentSprintId||""}</h1>
+        <p>Gerado em ${fmt(new Date())}</p>
+        <table><thead><tr><th>SHP</th><th>Título</th><th>Motivo</th><th>Início</th><th>Fim</th><th>Duração</th><th>Descrição</th></tr></thead><tbody>${rows}</tbody></table>
+        </body></html>`;
+      const blob = new Blob([html], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const w = window.open(url, "_blank");
+      if (w && typeof w.addEventListener === "function") {
+        w.addEventListener("load", ()=>{
+          try { w.focus(); w.print(); } catch(e) {}
+          setTimeout(()=>{ try { w.close(); } catch(e) {} URL.revokeObjectURL(url); }, 1000);
+        });
+      } else {
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "absolute";
+        iframe.style.width = "0"; iframe.style.height = "0"; iframe.style.border = "0";
+        iframe.style.visibility = "hidden"; iframe.style.pointerEvents = "none";
+        iframe.src = url;
+        document.body.appendChild(iframe);
+        const cleanup = ()=>{ try { document.body.removeChild(iframe); } catch(e) {} URL.revokeObjectURL(url); window.removeEventListener("afterprint", cleanup); };
+        window.addEventListener("afterprint", cleanup);
+        iframe.onload = ()=> { try { iframe.contentWindow?.print(); } catch(e) {} };
+        setTimeout(()=> cleanup(), 5000);
+      }
+    });
+
+    
+
+    function applyChartBoxSize(){
+      if (reasonChartBox) reasonChartBox.className = compactCharts ? "relative h-32 md:h-48" : "relative h-56 md:h-80";
+      if (reasonChartBoxBlocked) reasonChartBoxBlocked.className = compactCharts ? "relative h-32 md:h-48" : "relative h-56 md:h-80";
+      if (reasonChart) reasonChart.update();
+      if (reasonChartBlocked) reasonChartBlocked.update();
+    }
+
+    setInterval(()=> {
+      nowTick();
+      renderAll();
+    }, 10000);
+
+    nowTick();
+    const savedFilter = localStorage.getItem('lastSprintFilter');
+    const __qs2 = new URLSearchParams(location.search);
+    const QS_SPRINT_ID = __qs2.get('sprintId') || __qs2.get('sprint') || '';
+    const QS_START_DATE = __qs2.get('startDate') || __qs2.get('start') || '';
+    const initialSprint = aplicarMascaraSprintID(QS_SPRINT_ID || (savedFilter || deriveCurrentSprintId()));
+    sprintIdInput.value = initialSprint;
+    currentSprintId = initialSprint.trim();
+    if (QS_START_DATE) {
+      sprintStartDateInput.value = QS_START_DATE;
+      sprintStartDate = parseDateInput(QS_START_DATE);
+      sprintEndDate = new Date(sprintStartDate.getFullYear(), sprintStartDate.getMonth(), sprintStartDate.getDate()+13, 23, 59, 59, 999);
+      sprintIniciada = true;
+      localStorage.setItem('sprintState', JSON.stringify({ sprintId: currentSprintId, startDate: QS_START_DATE, endDate: sprintEndDate.toISOString().split('T')[0], iniciada: true }));
+    } else if (DEMO_MODE && MOCK_SPRINT_DATE) { seedSprintForDate(MOCK_SPRINT_DATE); }
+    
+    // Configurar campo de data com data máxima de hoje
+    const hoje = new Date().toISOString().split('T')[0];
+    sprintStartDateInput.max = hoje;
+    if (DEMO_MODE) { sprintStartDateInput.value = hoje; }
+    
+    // Carregar estado da sprint salvo (se existir)
+    loadSprintState();
+    
+    // Aplicar máscara ao valor inicial
+    formatarSprintIDInput();
+    
+    attachListener();
+    renderAll();
+
+    document.addEventListener('click', (e)=>{
+      const historyBtn = e.target.closest('.history-btn');
+      if (historyBtn) {
+        const usId = historyBtn.getAttribute('data-us');
+        const docId = historyBtn.getAttribute('data-doc') || '';
+        if (usId) { openUsModal(usId, docId); }
+        return;
+      }
+      const reopenBtn = e.target.closest('.reopen-btn');
+      if (reopenBtn) {
+        const usId = reopenBtn.getAttribute('data-us');
+        if (usId) { openReopenModal(usId); }
+        return;
+      }
+    });
+
+    if (DEMO_MODE && seedDemoBtn) {
+      seedDemoBtn.classList.remove("hidden");
+      seedDemoBtn.addEventListener("click", () => { seedDemoData(); renderAll(); });
+    }
+    if (DEMO_MODE && seedWeekBtn) {
+      seedWeekBtn.classList.remove("hidden");
+      seedWeekBtn.addEventListener("click", () => { seedWeekDemoData(); renderAll(); });
+    }
+    const centerTextPlugin = {
+      id: 'centerText',
+      afterDraw(chart) {
+        const opts = chart.options?.plugins?.centerText;
+        if (!opts || !opts.text) return;
+        const { ctx, chartArea } = chart;
+        const x = chartArea.left + chartArea.width/2;
+        const y = chartArea.top + chartArea.height/2;
+        ctx.save();
+        ctx.fillStyle = '#374151';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(opts.text, x, y);
+        ctx.restore();
+      }
+    };
+    if (typeof Chart !== 'undefined') { Chart.register(centerTextPlugin); }
+    
+    function updateModeButtons(){
+      if (!modeWorkBtn || !modeTotalBtn) return;
+      if (chartsWorkHours) {
+        modeWorkBtn.className = 'px-3 py-1 bg-gray-800 text-white';
+        modeTotalBtn.className = 'px-3 py-1 bg-white text-gray-800';
+      } else {
+        modeWorkBtn.className = 'px-3 py-1 bg-white text-gray-800';
+        modeTotalBtn.className = 'px-3 py-1 bg-gray-800 text-white';
+      }
+    }
+    if (modeWorkBtn) modeWorkBtn.addEventListener('click', ()=>{ chartsWorkHours = true; localStorage.setItem('chartsWorkHours','1'); updateModeButtons(); renderReasonChart(); renderReasonChartBlocked(); });
+    if (modeTotalBtn) modeTotalBtn.addEventListener('click', ()=>{ chartsWorkHours = false; localStorage.setItem('chartsWorkHours','0'); updateModeButtons(); renderReasonChart(); renderReasonChartBlocked(); });
+    const savedMode = localStorage.getItem('chartsWorkHours');
+    if (savedMode === '0') chartsWorkHours = false;
+    updateModeButtons();
+
+    
+
+  </script>
+</body>
+</html>

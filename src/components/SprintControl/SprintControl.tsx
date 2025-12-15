@@ -11,7 +11,6 @@ interface SprintControlProps {
     onStartSprint: (startDate: Date) => void
     onEndSprint?: () => void
     onExportPdf: () => void
-    onSeedDemo?: () => void
 }
 
 /**
@@ -26,7 +25,6 @@ export function SprintControl({
     onStartSprint,
     onEndSprint,
     onExportPdf,
-    onSeedDemo,
 }: SprintControlProps) {
     const [startDate, setStartDate] = useState('')
     const today = new Date().toISOString().split('T')[0]

@@ -22,10 +22,12 @@ import {
     Timestamp,
     type Firestore,
     type QuerySnapshot,
-    type DocumentData
+    type DocumentData,
+    limit,
+    serverTimestamp
 } from 'firebase/firestore'
-import { FIREBASE_CONFIG, IMPEDIMENTS_COLLECTION, ALLOWED_DOMAIN } from '@/constants'
-import type { Impediment, CreateImpedimentData, AuthUser } from '@/types'
+import { FIREBASE_CONFIG, IMPEDIMENTS_COLLECTION, SPRINTS_COLLECTION, ALLOWED_DOMAIN, SPRINT_DURATION_DAYS } from '@/constants'
+import type { Impediment, CreateImpedimentData, AuthUser, Sprint } from '@/types'
 
 // Inicialização do Firebase
 let app: FirebaseApp | null = null
@@ -247,6 +249,79 @@ export async function reopenImpediment(
     })
 
     return docRef.id
+}
+
+/**
+ * Inicia uma nova sprint no Firestore
+ */
+export async function startNewSprint(sprintId: string, startDate: Date): Promise<void> {
+    if (DEMO_MODE || !db) return
+
+    const endDate = new Date(startDate.getTime() + SPRINT_DURATION_DAYS * 24 * 60 * 60 * 1000)
+    // Seta para 18:00 do dia final
+    endDate.setHours(18, 0, 0, 0)
+
+    const col = collection(db, SPRINTS_COLLECTION)
+
+    await addDoc(col, {
+        sprintId,
+        startDate: Timestamp.fromDate(startDate),
+        endDate: Timestamp.fromDate(endDate),
+        iniciada: true,
+        createdAt: serverTimestamp()
+    })
+}
+
+/**
+ * Encerra a sprint atual
+ */
+export async function endSprint(sprintDocId: string): Promise<void> {
+    if (DEMO_MODE || !db) return
+
+    const docRef = doc(db, SPRINTS_COLLECTION, sprintDocId)
+    await updateDoc(docRef, {
+        iniciada: false,
+        endedAt: serverTimestamp()
+    })
+}
+
+/**
+ * Escuta a sprint ativa mais recente
+ */
+export function subscribeToActiveSprint(
+    callback: (sprint: Sprint | null, docId: string | null) => void
+): () => void {
+    if (DEMO_MODE || !db) {
+        callback(null, null)
+        return () => { }
+    }
+
+    const col = collection(db, SPRINTS_COLLECTION)
+    const q = query(
+        col,
+        where('iniciada', '==', true),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+    )
+
+    return onSnapshot(q, (snapshot) => {
+        if (snapshot.empty) {
+            callback(null, null)
+            return
+        }
+
+        const doc = snapshot.docs[0]
+        const data = doc.data()
+
+        const sprint: Sprint = {
+            id: data.sprintId,
+            startDate: data.startDate.toDate(),
+            endDate: data.endDate.toDate(),
+            iniciada: true
+        }
+
+        callback(sprint, doc.id)
+    })
 }
 
 // Inicializa automaticamente

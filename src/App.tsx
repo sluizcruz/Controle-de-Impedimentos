@@ -20,7 +20,7 @@ import { formatDateTime } from '@/utils/dateUtils'
  */
 function App() {
     const { user, loading: authLoading, error: authError, signIn, signOutUser } = useAuth()
-    const { sprintId, sprint, isStarted, setSprintId, startSprint, getSprintWindow } = useSprint()
+    const { sprintId, sprint, isStarted, isOverdue, setSprintId, startSprint, endSprint, getSprintWindow } = useSprint()
     const {
         impediments,
         metrics,
@@ -123,6 +123,8 @@ function App() {
                     isStarted={isStarted}
                     onSprintIdChange={setSprintId}
                     onStartSprint={startSprint}
+                    onEndSprint={endSprint}
+                    isOverdue={isOverdue}
                     onExportPdf={handleExportPdf}
                 />
 

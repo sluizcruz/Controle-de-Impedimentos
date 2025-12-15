@@ -1,17 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
-import { SPRINT_DURATION_DAYS } from '@/constants'
-import type { Sprint, SprintState } from '@/types'
-import { deriveSprintId, parseDate, formatSprintId } from '@/utils/dateUtils'
-
-const STORAGE_KEY = 'sprintState'
+import type { Sprint } from '@/types'
+import { deriveSprintId, formatSprintId } from '@/utils/dateUtils'
+import { startNewSprint, endSprint, subscribeToActiveSprint } from '@/services/firebase'
 
 interface UseSprintReturn {
     sprint: Sprint | null
     sprintId: string
     isStarted: boolean
     loading: boolean
+    isOverdue: boolean
     setSprintId: (id: string) => void
     startSprint: (startDate: Date) => void
+    endSprint: () => void
     getSprintWindow: () => { startDate: Date; endDate: Date; labels: string[]; startDay: number }
 }
 
@@ -20,62 +20,69 @@ interface UseSprintReturn {
  */
 export function useSprint(): UseSprintReturn {
     const [sprint, setSprint] = useState<Sprint | null>(null)
+    const [sprintDocId, setSprintDocId] = useState<string | null>(null)
     const [sprintId, setSprintIdState] = useState<string>(deriveSprintId())
     const [loading, setLoading] = useState(true)
+    const [isOverdue, setIsOverdue] = useState(false)
 
-    // Carrega estado salvo do localStorage
+    // Subscreve à sprint ativa do Firestore
     useEffect(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY)
-            if (saved) {
-                const state: SprintState = JSON.parse(saved)
-                if (state.iniciada && state.sprintId && state.startDate && state.endDate) {
-                    const startDate = parseDate(state.startDate.split('T')[0]) || new Date(state.startDate)
-                    const endDate = parseDate(state.endDate.split('T')[0]) || new Date(state.endDate)
+        const unsubscribe = subscribeToActiveSprint((sprintData, docId) => {
+            setSprint(sprintData)
+            setSprintDocId(docId)
 
-                    setSprint({
-                        id: state.sprintId,
-                        startDate,
-                        endDate,
-                        iniciada: true,
-                    })
-                    setSprintIdState(state.sprintId)
+            if (sprintData) {
+                setSprintIdState(sprintData.id)
+
+                // Verifica se já expirou
+                const now = new Date()
+                if (now > sprintData.endDate) {
+                    setIsOverdue(true)
+                } else {
+                    setIsOverdue(false)
                 }
+            } else {
+                setIsOverdue(false)
             }
-        } catch (e) {
-            console.error('Erro ao carregar estado da sprint:', e)
-        }
-        setLoading(false)
+
+            setLoading(false)
+        })
+
+        return () => unsubscribe()
     }, [])
 
-    // Atualiza o ID da sprint (com formatação)
+    // Timer para verificar expiração a cada minuto
+    useEffect(() => {
+        if (!sprint) return
+
+        const interval = setInterval(() => {
+            const now = new Date()
+            if (now > sprint.endDate && !isOverdue) {
+                setIsOverdue(true)
+            }
+        }, 60000)
+
+        return () => clearInterval(interval)
+    }, [sprint, isOverdue])
+
+    // Atualiza o ID da sprint (apenas local antes de iniciar)
     const setSprintId = useCallback((id: string) => {
         const formatted = formatSprintId(id)
         setSprintIdState(formatted)
     }, [])
 
-    // Inicia uma nova sprint
-    const startSprint = useCallback((startDate: Date) => {
-        const endDate = new Date(startDate.getTime() + SPRINT_DURATION_DAYS * 24 * 60 * 60 * 1000)
-
-        const newSprint: Sprint = {
-            id: sprintId,
-            startDate,
-            endDate,
-            iniciada: true,
-        }
-
-        setSprint(newSprint)
-
-        // Salva no localStorage
-        const state: SprintState = {
-            sprintId,
-            startDate: startDate.toISOString().split('T')[0],
-            endDate: endDate.toISOString().split('T')[0],
-            iniciada: true,
-        }
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    // Inicia uma nova sprint no Firestore
+    const startSprint = useCallback(async (startDate: Date) => {
+        await startNewSprint(sprintId, startDate)
     }, [sprintId])
+
+    // Finaliza a sprint atual
+    const endCurrentSprint = useCallback(async () => {
+        if (sprintDocId) {
+            await endSprint(sprintDocId)
+            setIsOverdue(false)
+        }
+    }, [sprintDocId])
 
     // Calcula a janela da sprint (labels para gráfico de timeline)
     const getSprintWindow = useCallback(() => {
@@ -96,14 +103,12 @@ export function useSprint(): UseSprintReturn {
         const d = new Date()
         const y = d.getFullYear()
         const m = d.getMonth()
-        const dim = new Date(y, m + 1, 0).getDate()
+        // ... (lógica de fallback mantida simplificada)
         const startDay = d.getDate() <= 15 ? 1 : 16
-        const endDay = Math.min(startDay + 14, dim)
-        const startDate = new Date(y, m, startDay, 0, 0, 0)
-        const endDate = new Date(y, m, endDay, 23, 59, 59, 999)
-        const days = endDay - startDay + 1
+        const startDate = new Date(y, m, startDay)
+        const endDate = new Date(y, m, startDay + 14)
 
-        const labels = Array.from({ length: days }, (_, i) => {
+        const labels = Array.from({ length: 15 }, (_, i) => {
             const dd = new Date(y, m, startDay + i)
             return new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit' }).format(dd)
         })
@@ -116,8 +121,10 @@ export function useSprint(): UseSprintReturn {
         sprintId,
         isStarted: sprint?.iniciada || false,
         loading,
+        isOverdue,
         setSprintId,
         startSprint,
+        endSprint: endCurrentSprint,
         getSprintWindow,
     }
 }

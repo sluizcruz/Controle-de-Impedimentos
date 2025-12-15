@@ -54,8 +54,9 @@ export function SprintControl({
                         value={sprintId}
                         onChange={(e) => onSprintIdChange(e.target.value)}
                         className="mt-1 w-full border border-gray-200 rounded-md px-3 py-2 text-sm"
-                        placeholder="ex.: Sprint-2025"
+                        placeholder="Sprint-000"
                     />
+                    <div className="text-[10px] text-gray-500 mt-1">Formato: Sprint-000 (Mantenha o padrão)</div>
                 </div>
 
                 <div className="flex-1">

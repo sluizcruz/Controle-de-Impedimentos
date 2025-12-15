@@ -37,17 +37,17 @@ export const SPRINT_DURATION_DAYS = 15
 
 /** Configuração do Firebase */
 export const FIREBASE_CONFIG = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyBSKcceleQlEj5fsBnOD6wFGridCFkMUd0',
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'controle-de-impedimentos.firebaseapp.com',
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'controle-de-impedimentos',
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'controle-de-impedimentos.firebasestorage.app',
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '327948512776',
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:327948512776:web:b0d31b5f5bc069636a6bbd',
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || 'G-JJEPLWH5L6',
+    apiKey: "AIzaSyBSKcceleQlEj5fsBnOD6wFGridCFkMUd0",
+    authDomain: "controle-de-impedimentos.firebaseapp.com",
+    projectId: "controle-de-impedimentos",
+    storageBucket: "controle-de-impedimentos.firebasestorage.app",
+    messagingSenderId: "327948512776",
+    appId: "1:327948512776:web:b0d31b5f5bc069636a6bbd",
+    measurementId: "G-JJEPLWH5L6"
 }
 
-/** Domínio permitido para login */
-export const ALLOWED_DOMAIN = import.meta.env.VITE_ALLOWED_DOMAIN || 'rethink.dev'
+/** Domínio permitido para login - alterado para gmail.com para testes, mas idealmente seria rethink.dev */
+export const ALLOWED_DOMAIN = 'gmail.com'
 
 /** Caminho da coleção de impedimentos no Firestore */
 export const IMPEDIMENTS_COLLECTION = 'artifacts/demo/public/data/impediments'

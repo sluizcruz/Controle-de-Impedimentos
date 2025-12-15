@@ -126,7 +126,9 @@ export function TimelineChart({
                             y: {
                                 stacked: true,
                                 beginAtZero: true,
-                                title: { display: true, text: 'Horas' }
+                                max: 8,
+                                title: { display: true, text: 'Horas' },
+                                ticks: { stepSize: 1 }
                             },
                         },
                         plugins: {

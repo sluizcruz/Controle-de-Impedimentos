@@ -19,7 +19,7 @@ import { formatDateTime } from '@/utils/dateUtils'
  * Componente principal da aplicação
  */
 function App() {
-    const { user, loading: authLoading, signIn, signOutUser } = useAuth()
+    const { user, loading: authLoading, error: authError, signIn, signOutUser } = useAuth()
     const { sprintId, sprint, isStarted, setSprintId, startSprint, getSprintWindow } = useSprint()
     const {
         impediments,
@@ -102,7 +102,7 @@ function App() {
 
     // Login required
     if (!user) {
-        return <LoginOverlay onSignIn={signIn} />
+        return <LoginOverlay onSignIn={signIn} message={authError || undefined} />
     }
 
     const sprintWindow = getSprintWindow()

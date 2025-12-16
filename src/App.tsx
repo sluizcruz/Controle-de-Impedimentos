@@ -23,6 +23,8 @@ function App() {
     const { sprintId, sprint, isStarted, isOverdue, setSprintId, startSprint, endSprint, getSprintWindow } = useSprint()
     const {
         impediments,
+        loading: impedimentsLoading,
+        error: impedimentsError,
         metrics,
         blockedItems,
         unblockedItems,
@@ -114,6 +116,14 @@ function App() {
                 onSignOut={signOutUser}
                 onOpenHistory={handleOpenHistory}
             />
+
+            {impedimentsError && (
+                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative max-w-6xl mx-auto mt-4" role="alert">
+                    <strong className="font-bold">Erro ao carregar impedimentos: </strong>
+                    <span className="block sm:inline">{impedimentsError}</span>
+                    <span className="block text-sm mt-1">Se for um erro de índice ausente, verifique o console para o link de criação.</span>
+                </div>
+            )}
 
             <main className="p-4 sm:p-6 max-w-6xl mx-auto space-y-5">
                 {/* Controle da Sprint */}

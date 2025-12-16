@@ -146,7 +146,8 @@ export async function getIdToken(): Promise<string | null> {
  */
 export function subscribeToImpediments(
     sprintId: string,
-    callback: (impediments: Impediment[]) => void
+    callback: (impediments: Impediment[]) => void,
+    onError?: (error: Error) => void
 ): () => void {
     if (DEMO_MODE || !db) {
         callback([])
@@ -180,6 +181,9 @@ export function subscribeToImpediments(
             }
         })
         callback(impediments)
+    }, (error) => {
+        console.error("Error subscribing to impediments:", error)
+        if (onError) onError(error)
     })
 }
 

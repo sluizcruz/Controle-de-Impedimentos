@@ -48,6 +48,9 @@ export function ImpedimentForm({ onSubmit, isAuthenticated }: ImpedimentFormProp
             setExternalLink('')
             setDescription('')
             setErrors({})
+            alert('Bloqueio registrado com sucesso!')
+        } else {
+            alert('Erro ao registrar bloqueio. Verifique se você está logado e tem permissão.')
         }
         setSubmitting(false)
     }

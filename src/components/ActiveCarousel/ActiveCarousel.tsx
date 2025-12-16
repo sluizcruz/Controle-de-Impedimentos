@@ -48,6 +48,59 @@ export function ActiveCarousel({ items, useWorkingHours = true }: ActiveCarousel
         setCurrentIndex(prev => (prev + 1) % slides.length)
     }, [slides.length])
 
+    // Touch/Drag Logic
+    const [touchStart, setTouchStart] = useState<number | null>(null)
+    const [touchEnd, setTouchEnd] = useState<number | null>(null)
+
+    // Minimum swipe distance (in px)
+    const minSwipeDistance = 50
+
+    const onTouchStart = (e: React.TouchEvent) => {
+        setTouchEnd(null) // Reset
+        setTouchStart(e.targetTouches[0].clientX)
+    }
+
+    const onTouchMove = (e: React.TouchEvent) => {
+        setTouchEnd(e.targetTouches[0].clientX)
+    }
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return
+        const distance = touchStart - touchEnd
+        const isLeftSwipe = distance > minSwipeDistance
+        const isRightSwipe = distance < -minSwipeDistance
+
+        if (isLeftSwipe) {
+            goToNext()
+        }
+        if (isRightSwipe) {
+            goToPrev()
+        }
+    }
+
+    // Mouse Drag Logic
+    const onMouseDown = (e: React.MouseEvent) => {
+        setTouchEnd(null)
+        setTouchStart(e.clientX)
+    }
+
+    const onMouseUp = (e: React.MouseEvent) => {
+        setTouchEnd(e.clientX)
+        // Check immediately for mouse as we have the final coord
+        if (!touchStart) return
+        const distance = touchStart - e.clientX
+        const isLeftSwipe = distance > minSwipeDistance
+        const isRightSwipe = distance < -minSwipeDistance
+
+        if (isLeftSwipe) {
+            goToNext()
+        }
+        if (isRightSwipe) {
+            goToPrev()
+        }
+        setTouchStart(null)
+    }
+
     if (slides.length === 0) {
         return (
             <section className="bg-white border border-gray-200 rounded-md p-3">
@@ -69,23 +122,31 @@ export function ActiveCarousel({ items, useWorkingHours = true }: ActiveCarousel
                 <div className="text-sm text-gray-500">Carrossel</div>
             </div>
 
-            <div className="relative overflow-hidden">
+            <div
+                className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
+                onTouchStart={onTouchStart}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+                onMouseDown={onMouseDown}
+                onMouseUp={onMouseUp}
+                onMouseLeave={() => setTouchStart(null)} // Cancel drag if leave
+            >
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="border border-gray-200 rounded-md p-3">
+                    <div className="border border-gray-200 rounded-md p-3 pointer-events-none">
                         <div className="text-sm text-gray-500">SHP</div>
                         <div className="text-lg font-semibold">{current.usId}</div>
                     </div>
-                    <div className="border border-gray-200 rounded-md p-3">
+                    <div className="border border-gray-200 rounded-md p-3 pointer-events-none">
                         <div className="text-sm text-gray-500">Motivo</div>
                         <div className="text-lg font-semibold">{current.reason}</div>
                     </div>
-                    <div className="border border-gray-200 rounded-md p-3">
+                    <div className="border border-gray-200 rounded-md p-3 pointer-events-none">
                         <div className="text-sm text-gray-500">Tempo Bloqueado</div>
                         <div className="text-lg font-semibold">{formatDuration(Math.max(current.durMs, 0))}</div>
                     </div>
                 </div>
 
-                <div className="mt-2 text-sm text-gray-600">
+                <div className="mt-2 text-sm text-gray-600 pointer-events-none">
                     {current.usTitle} • Início: {formatDateTime(current.start)}
                 </div>
 

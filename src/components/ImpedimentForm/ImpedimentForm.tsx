@@ -28,6 +28,7 @@ export function ImpedimentForm({ onSubmit, isAuthenticated }: ImpedimentFormProp
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors)
+            alert('Por favor, preencha os campos obrigatórios (ID da US e Responsável).')
             return
         }
 

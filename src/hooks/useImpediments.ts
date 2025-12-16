@@ -88,164 +88,165 @@ export function useImpediments(sprintId: string, userId: string | null): UseImpe
 
         // Modo produção: escuta Firestore
         setLoading(true)
-        setImpediments(data)
-        setLoading(false)
-    }, (err) => {
-        console.error(err)
-        setError(err.message)
-        setLoading(false)
-    })
+        const unsubscribe = subscribeToImpediments(sprintId, (data) => {
+            setImpediments(data)
+            setLoading(false)
+        }, (err: any) => {
+            console.error(err)
+            setError(err instanceof Error ? err.message : 'Unknown error')
+            setLoading(false)
+        })
 
-    return () => unsubscribe()
-}, [sprintId, isDemo, demoData])
+        return () => unsubscribe()
+    }, [sprintId, isDemo, demoData])
 
-// Calcula métricas
-const metrics = useMemo((): SprintMetrics => {
-    const dayTotals = calculateDailyMetrics(impediments)
-    let totalMs = 0
-    for (const ms of dayTotals.values()) {
-        totalMs += ms
-    }
-
-    // Conta SHPs por status
-    const byUs = new Map<string, Impediment[]>()
-    for (const imp of impediments) {
-        const arr = byUs.get(imp.usId) || []
-        arr.push(imp)
-        byUs.set(imp.usId, arr)
-    }
-
-    let blockedCount = 0
-    let unblockedCount = 0
-    for (const [, arr] of byUs.entries()) {
-        const hasActive = arr.some(imp => !imp.endTime)
-        if (hasActive) blockedCount++
-        else unblockedCount++
-    }
-
-    return { totalMs, blockedCount, unblockedCount }
-}, [impediments])
-
-// Itens bloqueados (ordenados por tempo)
-const blockedItems = useMemo(() => {
-    return impediments
-        .filter(imp => !imp.endTime)
-        .map(imp => ({
-            ...imp,
-            _durMs: calculateWorkingMs(imp.startTime, null)
-        }))
-        .sort((a, b) => b._durMs - a._durMs)
-        .map(({ _durMs, ...imp }) => imp)
-}, [impediments])
-
-// Itens desbloqueados (ordenados por data fim)
-const unblockedItems = useMemo(() => {
-    return impediments
-        .filter(imp => !!imp.endTime)
-        .sort((a, b) => (b.endTime?.getTime() || 0) - (a.endTime?.getTime() || 0))
-}, [impediments])
-
-// Adiciona impedimento
-const addImpediment = useCallback(async (data: CreateImpedimentData): Promise<boolean> => {
-    if (!sprintId) return false
-
-    try {
-        if (isDemo) {
-            const newImp: Impediment = {
-                id: String(Date.now()),
-                ...data,
-                sprintId,
-                startTime: new Date(),
-                endTime: null,
-                userId: 'demo',
-                externalLink: data.externalLink || '',
-                description: data.description || '',
-                reopenedFrom: null,
-                reopenedAt: null,
-            }
-            setDemoData(prev => [...prev, newImp])
-            return true
+    // Calcula métricas
+    const metrics = useMemo((): SprintMetrics => {
+        const dayTotals = calculateDailyMetrics(impediments)
+        let totalMs = 0
+        for (const ms of dayTotals.values()) {
+            totalMs += ms
         }
 
-        if (!userId) {
-            setError('Usuário não autenticado')
+        // Conta SHPs por status
+        const byUs = new Map<string, Impediment[]>()
+        for (const imp of impediments) {
+            const arr = byUs.get(imp.usId) || []
+            arr.push(imp)
+            byUs.set(imp.usId, arr)
+        }
+
+        let blockedCount = 0
+        let unblockedCount = 0
+        for (const [, arr] of byUs.entries()) {
+            const hasActive = arr.some(imp => !imp.endTime)
+            if (hasActive) blockedCount++
+            else unblockedCount++
+        }
+
+        return { totalMs, blockedCount, unblockedCount }
+    }, [impediments])
+
+    // Itens bloqueados (ordenados por tempo)
+    const blockedItems = useMemo(() => {
+        return impediments
+            .filter(imp => !imp.endTime)
+            .map(imp => ({
+                ...imp,
+                _durMs: calculateWorkingMs(imp.startTime, null)
+            }))
+            .sort((a, b) => b._durMs - a._durMs)
+            .map(({ _durMs, ...imp }) => imp)
+    }, [impediments])
+
+    // Itens desbloqueados (ordenados por data fim)
+    const unblockedItems = useMemo(() => {
+        return impediments
+            .filter(imp => !!imp.endTime)
+            .sort((a, b) => (b.endTime?.getTime() || 0) - (a.endTime?.getTime() || 0))
+    }, [impediments])
+
+    // Adiciona impedimento
+    const addImpediment = useCallback(async (data: CreateImpedimentData): Promise<boolean> => {
+        if (!sprintId) return false
+
+        try {
+            if (isDemo) {
+                const newImp: Impediment = {
+                    id: String(Date.now()),
+                    ...data,
+                    sprintId,
+                    startTime: new Date(),
+                    endTime: null,
+                    userId: 'demo',
+                    externalLink: data.externalLink || '',
+                    description: data.description || '',
+                    reopenedFrom: null,
+                    reopenedAt: null,
+                }
+                setDemoData(prev => [...prev, newImp])
+                return true
+            }
+
+            if (!userId) {
+                setError('Usuário não autenticado')
+                return false
+            }
+
+            await createImpediment(sprintId, data, userId)
+            return true
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao criar impedimento')
             return false
         }
+    }, [sprintId, userId, isDemo])
 
-        await createImpediment(sprintId, data, userId)
-        return true
-    } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao criar impedimento')
-        return false
-    }
-}, [sprintId, userId, isDemo])
-
-// Encerra impedimento
-const finishImpediment = useCallback(async (id: string): Promise<boolean> => {
-    try {
-        if (isDemo) {
-            setDemoData(prev => prev.map(d =>
-                d.id === id ? { ...d, endTime: new Date() } : d
-            ))
-            return true
-        }
-
-        await endImpediment(id)
-        return true
-    } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao encerrar impedimento')
-        return false
-    }
-}, [isDemo])
-
-// Reabre impedimento
-const reopen = useCallback(async (
-    impediment: Impediment,
-    newData: Partial<CreateImpedimentData>
-): Promise<boolean> => {
-    try {
-        if (isDemo) {
-            const newImp: Impediment = {
-                id: String(Date.now()),
-                usId: impediment.usId,
-                usTitle: newData.usTitle || impediment.usTitle,
-                sprintId: impediment.sprintId,
-                startTime: new Date(),
-                endTime: null,
-                reason: newData.reason || impediment.reason,
-                userId: 'demo',
-                responsavel: newData.responsavel || impediment.responsavel,
-                externalLink: newData.externalLink || impediment.externalLink,
-                description: newData.description || '',
-                reopenedFrom: impediment.id,
-                reopenedAt: new Date(),
+    // Encerra impedimento
+    const finishImpediment = useCallback(async (id: string): Promise<boolean> => {
+        try {
+            if (isDemo) {
+                setDemoData(prev => prev.map(d =>
+                    d.id === id ? { ...d, endTime: new Date() } : d
+                ))
+                return true
             }
-            setDemoData(prev => [...prev, newImp])
-            return true
-        }
 
-        if (!userId) {
-            setError('Usuário não autenticado')
+            await endImpediment(id)
+            return true
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao encerrar impedimento')
             return false
         }
+    }, [isDemo])
 
-        await reopenImpediment(impediment, newData, userId)
-        return true
-    } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao reabrir impedimento')
-        return false
+    // Reabre impedimento
+    const reopen = useCallback(async (
+        impediment: Impediment,
+        newData: Partial<CreateImpedimentData>
+    ): Promise<boolean> => {
+        try {
+            if (isDemo) {
+                const newImp: Impediment = {
+                    id: String(Date.now()),
+                    usId: impediment.usId,
+                    usTitle: newData.usTitle || impediment.usTitle,
+                    sprintId: impediment.sprintId,
+                    startTime: new Date(),
+                    endTime: null,
+                    reason: newData.reason || impediment.reason,
+                    userId: 'demo',
+                    responsavel: newData.responsavel || impediment.responsavel,
+                    externalLink: newData.externalLink || impediment.externalLink,
+                    description: newData.description || '',
+                    reopenedFrom: impediment.id,
+                    reopenedAt: new Date(),
+                }
+                setDemoData(prev => [...prev, newImp])
+                return true
+            }
+
+            if (!userId) {
+                setError('Usuário não autenticado')
+                return false
+            }
+
+            await reopenImpediment(impediment, newData, userId)
+            return true
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Erro ao reabrir impedimento')
+            return false
+        }
+    }, [userId, isDemo])
+
+    return {
+        impediments,
+        loading,
+        error,
+        metrics,
+        blockedItems,
+        unblockedItems,
+        addImpediment,
+        finishImpediment,
+        reopen,
     }
-}, [userId, isDemo])
-
-return {
-    impediments,
-    loading,
-    error,
-    metrics,
-    blockedItems,
-    unblockedItems,
-    addImpediment,
-    finishImpediment,
-    reopen,
-}
 }

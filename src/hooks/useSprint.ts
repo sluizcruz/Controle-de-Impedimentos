@@ -10,7 +10,7 @@ interface UseSprintReturn {
     loading: boolean
     isOverdue: boolean
     setSprintId: (id: string) => void
-    startSprint: (startDate: Date) => void
+    startSprint: (startDate: Date) => Promise<void>
     endSprint: () => void
     getSprintWindow: () => { startDate: Date; endDate: Date; labels: string[]; startDay: number }
 }

@@ -8,7 +8,7 @@ interface SprintControlProps {
     isStarted: boolean
     isOverdue?: boolean
     onSprintIdChange: (id: string) => void
-    onStartSprint: (startDate: Date) => void
+    onStartSprint: (startDate: Date) => Promise<void>
     onEndSprint?: () => void
     onExportPdf: () => void
 }
@@ -27,9 +27,10 @@ export function SprintControl({
     onExportPdf,
 }: SprintControlProps) {
     const [startDate, setStartDate] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
     const today = new Date().toISOString().split('T')[0]
 
-    const handleStartSprint = () => {
+    const handleStartSprint = async () => {
         if (!startDate) {
             alert('Por favor, selecione uma data de início')
             return
@@ -40,11 +41,19 @@ export function SprintControl({
             return
         }
 
-        const parsed = new Date(startDate + 'T00:00:00')
-        onStartSprint(parsed)
+        try {
+            setIsSubmitting(true)
+            const parsed = new Date(startDate + 'T00:00:00')
+            await onStartSprint(parsed)
 
-        const endDate = new Date(parsed.getTime() + 15 * 24 * 60 * 60 * 1000)
-        alert(`Sprint "${sprintId}" iniciada!\nInício: ${formatDateBR(parsed)}\nFim: ${formatDateBR(endDate)}`)
+            const endDate = new Date(parsed.getTime() + 15 * 24 * 60 * 60 * 1000)
+            alert(`Sprint "${sprintId}" iniciada!\nInício: ${formatDateBR(parsed)}\nFim: ${formatDateBR(endDate)}`)
+        } catch (error) {
+            console.error(error)
+            alert('Erro ao iniciar sprint. Tente novamente.')
+        } finally {
+            setIsSubmitting(false)
+        }
     }
 
     return (
@@ -79,10 +88,10 @@ export function SprintControl({
                             <label className="block text-xs opacity-0 select-none">Iniciar</label>
                             <button
                                 onClick={handleStartSprint}
-                                disabled={!startDate || !sprintId}
-                                className="mt-1 px-3 py-2 bg-green-600 text-white rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 transition"
+                                disabled={!startDate || !sprintId || isSubmitting}
+                                className="mt-1 px-3 py-2 bg-green-600 text-white rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 transition flex items-center gap-2"
                             >
-                                Iniciar Sprint
+                                {isSubmitting ? 'Iniciando...' : 'Iniciar Sprint'}
                             </button>
                         </div>
                     </>

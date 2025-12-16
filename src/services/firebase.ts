@@ -23,7 +23,6 @@ import {
     type Firestore,
     type QuerySnapshot,
     type DocumentData,
-    limit,
     serverTimestamp
 } from 'firebase/firestore'
 import { FIREBASE_CONFIG, IMPEDIMENTS_COLLECTION, SPRINTS_COLLECTION, ALLOWED_DOMAIN, SPRINT_DURATION_DAYS } from '@/constants'
@@ -299,9 +298,7 @@ export function subscribeToActiveSprint(
     const col = collection(db, SPRINTS_COLLECTION)
     const q = query(
         col,
-        where('iniciada', '==', true),
-        orderBy('createdAt', 'desc'),
-        limit(1)
+        where('iniciada', '==', true)
     )
 
     return onSnapshot(q, (snapshot) => {
@@ -310,7 +307,14 @@ export function subscribeToActiveSprint(
             return
         }
 
-        const doc = snapshot.docs[0]
+        // Ordena em memória para pegar o mais recente (evita índice composto)
+        const docs = snapshot.docs.sort((a, b) => {
+            const dateA = a.data().createdAt?.toDate?.() || new Date(0)
+            const dateB = b.data().createdAt?.toDate?.() || new Date(0)
+            return dateB.getTime() - dateA.getTime()
+        })
+
+        const doc = docs[0]
         const data = doc.data()
 
         const sprint: Sprint = {

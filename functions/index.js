@@ -10,7 +10,7 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 const allowedDomain = process.env.ALLOWED_DOMAIN || "rethink.dev";
-const colPath = "artifacts/demo/public/data/impediments";
+const colPath = "impediments";
 
 async function verify(req, requireAuth) {
   if (!requireAuth) return null;

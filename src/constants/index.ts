@@ -50,10 +50,11 @@ export const FIREBASE_CONFIG = {
 export const ALLOWED_DOMAIN = 'rethink.dev'
 
 /** Caminho da coleção de impedimentos no Firestore */
-export const IMPEDIMENTS_COLLECTION = 'artifacts/demo/public/data/impediments'
+/** Caminho da coleção de impedimentos no Firestore */
+export const IMPEDIMENTS_COLLECTION = 'impediments'
 
 /** Caminho da coleção de sprints no Firestore */
-export const SPRINTS_COLLECTION = 'artifacts/demo/public/data/sprints'
+export const SPRINTS_COLLECTION = 'sprints'
 
 /** Intervalo de atualização do dashboard (ms) */
 export const DASHBOARD_REFRESH_INTERVAL = 10000 // 10 segundos

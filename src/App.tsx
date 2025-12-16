@@ -23,7 +23,6 @@ function App() {
     const { sprintId, sprint, isStarted, isOverdue, setSprintId, startSprint, endSprint, getSprintWindow } = useSprint()
     const {
         impediments,
-        loading: impedimentsLoading,
         error: impedimentsError,
         metrics,
         blockedItems,

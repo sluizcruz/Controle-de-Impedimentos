@@ -12,8 +12,10 @@ import {
     ImpedimentForm,
     LoginOverlay,
 } from '@/components'
-import type { Impediment } from '@/types'
+import type { Impediment, Sprint } from '@/types'
 import { formatDateTime } from '@/utils/dateUtils'
+import { SprintHistory } from '@/components/SprintHistory/SprintHistory'
+import { listFinishedSprints } from '@/services/firebase'
 
 /**
  * Componente principal da aplicação
@@ -33,12 +35,30 @@ function App() {
     } = useImpediments(sprintId, user?.uid || null)
 
     const [useWorkingHours, setUseWorkingHours] = useState(true)
+    const [showSprintHistory, setShowSprintHistory] = useState(false)
+    const [historyLoading, setHistoryLoading] = useState(false)
+    const [historyError, setHistoryError] = useState<string | null>(null)
+    const [finishedSprints, setFinishedSprints] = useState<Sprint[]>([])
 
-    // Handlers
     const handleOpenHistory = useCallback(() => {
-        // TODO: Implementar modal de histórico
-        console.log('Abrir histórico')
-    }, [])
+        if (historyLoading) return
+        setShowSprintHistory(true)
+        setHistoryError(null)
+        setHistoryLoading(true)
+
+        listFinishedSprints()
+            .then((items) => {
+                setFinishedSprints(items)
+            })
+            .catch((err) => {
+                const message = err instanceof Error ? err.message : 'Erro ao carregar histórico de sprints'
+                console.error(err)
+                setHistoryError(message)
+            })
+            .finally(() => {
+                setHistoryLoading(false)
+            })
+    }, [historyLoading])
 
     const handleViewHistory = useCallback((usId: string) => {
         // TODO: Implementar modal de histórico por SHP
@@ -101,7 +121,6 @@ function App() {
         )
     }
 
-    // Login required
     if (!user) {
         return <LoginOverlay onSignIn={signIn} message={authError || undefined} />
     }
@@ -109,7 +128,7 @@ function App() {
     const sprintWindow = getSprintWindow()
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 relative">
             <Header
                 user={user}
                 onSignOut={signOutUser}
@@ -213,6 +232,15 @@ function App() {
                     onViewHistory={handleViewHistory}
                 />
             </main>
+
+            {showSprintHistory && (
+                <SprintHistory
+                    sprints={finishedSprints}
+                    loading={historyLoading}
+                    error={historyError}
+                    onClose={() => setShowSprintHistory(false)}
+                />
+            )}
         </div>
     )
 }

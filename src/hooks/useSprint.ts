@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import type { Sprint } from '@/types'
 import { deriveSprintId, formatSprintId } from '@/utils/dateUtils'
 import { startNewSprint, endSprint, subscribeToActiveSprint } from '@/services/firebase'
+import { SPRINT_DURATION_DAYS } from '@/constants'
 
 interface UseSprintReturn {
     sprint: Sprint | null
@@ -71,9 +72,17 @@ export function useSprint(): UseSprintReturn {
         setSprintIdState(formatted)
     }, [])
 
-    // Inicia uma nova sprint no Firestore
     const startSprint = useCallback(async (startDate: Date) => {
         await startNewSprint(sprintId, startDate)
+        const endDate = new Date(startDate.getTime() + SPRINT_DURATION_DAYS * 24 * 60 * 60 * 1000)
+        endDate.setHours(18, 0, 0, 0)
+        setSprint({
+            id: sprintId,
+            startDate,
+            endDate,
+            iniciada: true,
+        })
+        setIsOverdue(false)
     }, [sprintId])
 
     // Finaliza a sprint atual

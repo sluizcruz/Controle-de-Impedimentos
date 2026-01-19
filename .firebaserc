@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "controle-de-impedimentos"
+    "default": "controle-de-impedimentos",
+    "homolog": "controle-de-impedimentos-hml"
   }
 }

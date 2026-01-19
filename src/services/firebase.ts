@@ -19,6 +19,7 @@ import {
     where,
     orderBy,
     onSnapshot,
+    getDocs,
     Timestamp,
     type Firestore,
     type QuerySnapshot,
@@ -286,6 +287,54 @@ export async function endSprint(sprintDocId: string): Promise<void> {
         iniciada: false,
         endedAt: serverTimestamp()
     })
+}
+
+export async function listFinishedSprints(): Promise<Sprint[]> {
+    if (DEMO_MODE || !db) return []
+
+    const col = collection(db, SPRINTS_COLLECTION)
+    const q = query(
+        col,
+        where('iniciada', '==', false),
+        orderBy('startDate', 'desc')
+    )
+
+    const snapshot = await getDocs(q)
+    const items: Sprint[] = snapshot.docs.map((docItem) => {
+        const data = docItem.data()
+        return {
+            id: data.sprintId,
+            startDate: data.startDate.toDate(),
+            endDate: data.endDate.toDate(),
+            iniciada: false
+        }
+    })
+
+    return items
+}
+
+export async function listFinishedSprints(): Promise<Sprint[]> {
+    if (DEMO_MODE || !db) return []
+
+    const col = collection(db, SPRINTS_COLLECTION)
+    const q = query(
+        col,
+        where('iniciada', '==', false),
+        orderBy('startDate', 'desc')
+    )
+
+    const snapshot = await getDocs(q)
+    const items: Sprint[] = snapshot.docs.map((docItem) => {
+        const data = docItem.data()
+        return {
+            id: data.sprintId,
+            startDate: data.startDate.toDate(),
+            endDate: data.endDate.toDate(),
+            iniciada: false,
+        }
+    })
+
+    return items
 }
 
 /**

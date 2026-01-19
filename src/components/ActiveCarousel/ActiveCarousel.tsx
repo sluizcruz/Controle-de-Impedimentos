@@ -51,54 +51,85 @@ export function ActiveCarousel({ items, useWorkingHours = true }: ActiveCarousel
     // Touch/Drag Logic
     const [touchStart, setTouchStart] = useState<number | null>(null)
     const [touchEnd, setTouchEnd] = useState<number | null>(null)
+    const [dragOffset, setDragOffset] = useState(0)
+    const [isDragging, setIsDragging] = useState(false)
 
     // Minimum swipe distance (in px)
     const minSwipeDistance = 50
 
     const onTouchStart = (e: React.TouchEvent) => {
-        setTouchEnd(null) // Reset
+        setTouchEnd(null)
         setTouchStart(e.targetTouches[0].clientX)
+        setIsDragging(true)
     }
 
     const onTouchMove = (e: React.TouchEvent) => {
-        setTouchEnd(e.targetTouches[0].clientX)
+        const currentTouch = e.targetTouches[0].clientX
+        setTouchEnd(currentTouch)
+        if (touchStart !== null) {
+            setDragOffset(currentTouch - touchStart)
+        }
     }
 
     const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return
+        if (!touchStart || !touchEnd) {
+            resetDrag()
+            return
+        }
         const distance = touchStart - touchEnd
         const isLeftSwipe = distance > minSwipeDistance
         const isRightSwipe = distance < -minSwipeDistance
 
         if (isLeftSwipe) {
             goToNext()
-        }
-        if (isRightSwipe) {
+        } else if (isRightSwipe) {
             goToPrev()
         }
+        resetDrag()
     }
 
     // Mouse Drag Logic
     const onMouseDown = (e: React.MouseEvent) => {
         setTouchEnd(null)
         setTouchStart(e.clientX)
+        setIsDragging(true)
+    }
+
+    const onMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging || touchStart === null) return
+        const currentX = e.clientX
+        setTouchEnd(currentX)
+        setDragOffset(currentX - touchStart)
     }
 
     const onMouseUp = (e: React.MouseEvent) => {
-        setTouchEnd(e.clientX)
-        // Check immediately for mouse as we have the final coord
-        if (!touchStart) return
-        const distance = touchStart - e.clientX
-        const isLeftSwipe = distance > minSwipeDistance
-        const isRightSwipe = distance < -minSwipeDistance
+        if (!isDragging) return
+        const endX = e.clientX
+        setTouchEnd(endX)
 
-        if (isLeftSwipe) {
-            goToNext()
+        if (touchStart !== null) {
+            const distance = touchStart - endX
+            const isLeftSwipe = distance > minSwipeDistance
+            const isRightSwipe = distance < -minSwipeDistance
+
+            if (isLeftSwipe) {
+                goToNext()
+            } else if (isRightSwipe) {
+                goToPrev()
+            }
         }
-        if (isRightSwipe) {
-            goToPrev()
-        }
+        resetDrag()
+    }
+
+    const onMouseLeave = () => {
+        if (isDragging) resetDrag()
+    }
+
+    const resetDrag = () => {
+        setIsDragging(false)
         setTouchStart(null)
+        setTouchEnd(null)
+        setDragOffset(0)
     }
 
     if (slides.length === 0) {
@@ -116,38 +147,44 @@ export function ActiveCarousel({ items, useWorkingHours = true }: ActiveCarousel
     const current = slides[currentIndex]
 
     return (
-        <section className="bg-white border border-gray-200 rounded-md p-3">
+        <section className="bg-white border border-gray-200 rounded-md p-3 touch-none select-none">
             <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold">Bloqueios Ativos</h2>
                 <div className="text-sm text-gray-500">Carrossel</div>
             </div>
 
             <div
-                className="relative overflow-hidden cursor-grab active:cursor-grabbing select-none"
+                className="relative overflow-hidden cursor-grab active:cursor-grabbing"
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
                 onMouseDown={onMouseDown}
+                onMouseMove={onMouseMove}
                 onMouseUp={onMouseUp}
-                onMouseLeave={() => setTouchStart(null)} // Cancel drag if leave
+                onMouseLeave={onMouseLeave}
             >
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="border border-gray-200 rounded-md p-3 pointer-events-none">
-                        <div className="text-sm text-gray-500">SHP</div>
-                        <div className="text-lg font-semibold">{current.usId}</div>
+                <div
+                    className="transition-transform duration-75 ease-out"
+                    style={{ transform: `translateX(${dragOffset}px)` }}
+                >
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pointer-events-none">
+                        <div className="border border-gray-200 rounded-md p-3">
+                            <div className="text-sm text-gray-500">SHP</div>
+                            <div className="text-lg font-semibold">{current.usId}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-md p-3">
+                            <div className="text-sm text-gray-500">Motivo</div>
+                            <div className="text-lg font-semibold">{current.reason}</div>
+                        </div>
+                        <div className="border border-gray-200 rounded-md p-3">
+                            <div className="text-sm text-gray-500">Tempo Bloqueado</div>
+                            <div className="text-lg font-semibold">{formatDuration(Math.max(current.durMs, 0))}</div>
+                        </div>
                     </div>
-                    <div className="border border-gray-200 rounded-md p-3 pointer-events-none">
-                        <div className="text-sm text-gray-500">Motivo</div>
-                        <div className="text-lg font-semibold">{current.reason}</div>
-                    </div>
-                    <div className="border border-gray-200 rounded-md p-3 pointer-events-none">
-                        <div className="text-sm text-gray-500">Tempo Bloqueado</div>
-                        <div className="text-lg font-semibold">{formatDuration(Math.max(current.durMs, 0))}</div>
-                    </div>
-                </div>
 
-                <div className="mt-2 text-sm text-gray-600 pointer-events-none">
-                    {current.usTitle} • Início: {formatDateTime(current.start)}
+                    <div className="mt-2 text-sm text-gray-600 pointer-events-none">
+                        {current.usTitle} • Início: {formatDateTime(current.start)}
+                    </div>
                 </div>
 
                 <div className="flex items-center justify-between mt-2">

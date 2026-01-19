@@ -106,8 +106,14 @@ export function parseDate(value: string): Date | null {
  * Formata data para string DD/MM/YYYY
  */
 export function formatDateBR(date: Date | string): string {
-    if (typeof date === 'string' && date.includes('-')) {
-        date = new Date(date)
+    if (typeof date === 'string') {
+        if (date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const parsed = parseDate(date)
+            if (parsed) date = parsed
+            else date = new Date(date)
+        } else if (date.includes('-')) {
+            date = new Date(date)
+        }
     }
 
     if (date instanceof Date) {
